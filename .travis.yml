@@ -1,0 +1,39 @@
+sudo: true
+services:
+- docker
+language: java
+jdk:
+- oraclejdk8
+env:
+  matrix:
+  - GEOTOOLS_VERSION='21.1' GEOSERVER_VERSION='2.15.1' ES_VERSION='7.0.1'
+  - GEOTOOLS_VERSION='21.1' GEOSERVER_VERSION='2.15.1' ES_VERSION='6.7.2'
+  - GEOTOOLS_VERSION='21.1' GEOSERVER_VERSION='2.15.1' ES_VERSION='5.6.15'
+  - GEOTOOLS_VERSION='21.1' GEOSERVER_VERSION='2.15.1' ES_VERSION='2.4.4' ARGS='-Ddocker.image=elasticsearch'
+  - GEOTOOLS_VERSION='21.0' GEOSERVER_VERSION='2.15.0' ES_VERSION='7.0.1'
+  - GEOTOOLS_VERSION='21.0' GEOSERVER_VERSION='2.15.0' ES_VERSION='6.7.2'
+  - GEOTOOLS_VERSION='21.0' GEOSERVER_VERSION='2.15.0' ES_VERSION='5.6.15'
+  - GEOTOOLS_VERSION='21.0' GEOSERVER_VERSION='2.15.0' ES_VERSION='2.4.4' ARGS='-Ddocker.image=elasticsearch'
+cache:
+  directories:
+  - "$HOME/.m2"
+install:
+- travis_retry mvn install -DskipTests=true -Dskip.integration.tests=true -Dgeotools.version=${GEOTOOLS_VERSION} -Dgeoserver.version=${GEOSERVER_VERSION} -Des.test.version=${ES_VERSION} ${ARGS}
+script:
+- sudo sysctl -w vm.max_map_count=262144
+- travis_retry mvn verify -Dgeotools.version=${GEOTOOLS_VERSION} -Dgeoserver.version=${GEOSERVER_VERSION} -Des.test.version=${ES_VERSION} ${ARGS}
+after_success:
+- mvn coveralls:report
+before_deploy:
+  - mvn assembly:assembly -pl gs-web-elasticsearch
+  - export PLUGIN_FILE="$(ls gs-web-elasticsearch/target/elasticgeo*.zip)";
+  - echo "Deploying $PLUGIN_FILE to GitHub releases"
+deploy:
+  provider: releases
+  api_key:
+    secure: UiMZusRpTSbs3BQWZxououT1VPj8LzUN4UYH8H+PcPdEEZfx/lDNCxlaj1YG8eVCflJL1TItPdU8jIEU435weP4v3cnSyUjq/3Oc4ey9CK/iuphoqvkqfCgRxpVsj9wuZkJqLobi9+9JFLz6NziCnX9ME5WxRgMPlfRU2jot/GM=
+  file_glob: true
+  skip_cleanup: true
+  file: "$PLUGIN_FILE"
+  on:
+    tags: true

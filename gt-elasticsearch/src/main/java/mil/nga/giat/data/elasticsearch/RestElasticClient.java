@@ -292,7 +292,7 @@ public class RestElasticClient implements ElasticClient {
         final Map<String,Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
-        LOGGER.fine("scroll parseResponse start");
+        LOGGER.fine("scroll parseResponse start!");
         return parseResponse(performRequest("POST", path, requestBody));
     }
 

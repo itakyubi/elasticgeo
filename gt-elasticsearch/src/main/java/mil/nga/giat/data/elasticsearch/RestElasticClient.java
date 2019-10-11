@@ -273,27 +273,33 @@ public class RestElasticClient implements ElasticClient {
     }
 
     private ElasticResponse parseResponse(final Response response) throws IOException {
-        LOGGER.fine("parseResponse start");
-        final InputStream inputStream = response.getEntity().getContent();
-        LOGGER.fine("inputStream done");
-        ElasticResponse elasticResponse = this.mapper.readValue(inputStream, ElasticResponse.class);
-        LOGGER.fine("readValue done");
-        return elasticResponse;
-        /*try (final InputStream inputStream = response.getEntity().getContent()) {
+        try (final InputStream inputStream = response.getEntity().getContent()) {
             return this.mapper.readValue(inputStream, ElasticResponse.class);
-        }*/
+        }
     }
 
     @Override
     public ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException {
-        LOGGER.fine("scroll start");
         final String path = "/_search/scroll";
 
         final Map<String,Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
-        LOGGER.fine("scroll parseResponse start!");
         return parseResponse(performRequest("POST", path, requestBody));
+    }
+
+    public Response scrollTest(String scrollId, Integer scrollTime) throws IOException {
+        final String path = "/_search/scroll";
+
+        final Map<String,Object> requestBody = new HashMap<>();
+        requestBody.put("scroll_id", scrollId);
+        requestBody.put("scroll", scrollTime + "s");
+        Response response = performRequest("POST", path, requestBody);
+        return response;
+    }
+
+    public ElasticResponse parseTest(Response response) throws IOException {
+        return parseResponse(response);
     }
 
     @Override

@@ -4,6 +4,8 @@
  */
 package mil.nga.giat.data.elasticsearch;
 
+import org.elasticsearch.client.Response;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
@@ -23,6 +25,10 @@ interface ElasticClient extends Closeable {
     ElasticResponse search(String searchIndices, String type, ElasticRequest request) throws IOException;
 
     ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException;
+
+    Response scrollTest(String scrollId, Integer scrollTime) throws IOException;
+
+    ElasticResponse parseTest(Response response) throws IOException;
 
     @Override
     void close() throws IOException;

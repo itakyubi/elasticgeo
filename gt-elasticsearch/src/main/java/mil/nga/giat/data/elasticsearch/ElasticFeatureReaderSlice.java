@@ -97,11 +97,11 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
     private void scrollInit() throws IOException, InterruptedException {
         LOGGER.fine("processer.init +++");
         List<Thread> ts = new ArrayList<Thread>();
-        List<ElasticFeatureReaderScrollUtil> processers = new ArrayList<ElasticFeatureReaderScrollUtil>();
+        List<ReponseToElasticResponse> processers = new ArrayList<ReponseToElasticResponse>();
         while (!responses.isEmpty()) {
             Response response = responses.get(0);
             responses.remove(0);
-            ElasticFeatureReaderScrollUtil processer = new ElasticFeatureReaderScrollUtil(response);
+            ReponseToElasticResponse processer = new ReponseToElasticResponse(response);
             processers.add(processer);
             Thread t = new Thread(processer);
             t.start();
@@ -121,7 +121,7 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
         LOGGER.fine("parseTest.init +++");
         while (!processers.isEmpty()) {
-            ElasticFeatureReaderScrollUtil processer = processers.get(0);
+            ReponseToElasticResponse processer = processers.get(0);
             processers.remove(0);
             ElasticResponse searchResponse = processer.getElasticResponse();
 //            ElasticResponse searchResponse = dataStore.getClient().parseTest(response);

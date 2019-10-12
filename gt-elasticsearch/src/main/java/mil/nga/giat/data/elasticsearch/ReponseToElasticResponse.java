@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
-public class ElasticFeatureReaderScrollUtil implements Runnable{
+final public class ReponseToElasticResponse implements Runnable{
     private final ObjectMapper mapper;
     private final static DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
     private Response response;
@@ -24,7 +24,7 @@ public class ElasticFeatureReaderScrollUtil implements Runnable{
 
     private ElasticResponse elasticResponse;
 
-    public ElasticFeatureReaderScrollUtil(Response response) {
+    public ReponseToElasticResponse(Response response) {
         this.mapper = new ObjectMapper();
         this.mapper.setDateFormat(DATE_FORMAT);
         this.response = response;

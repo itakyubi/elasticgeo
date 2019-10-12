@@ -41,12 +41,10 @@ public class ElasticSliceScroll implements Runnable{
     @Override
     public void run() {
         try {
-            /*for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < 7; ++i) {
                 Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
                 responses.add(response);
-            }*/
-            Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
-            responses.add(response);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }

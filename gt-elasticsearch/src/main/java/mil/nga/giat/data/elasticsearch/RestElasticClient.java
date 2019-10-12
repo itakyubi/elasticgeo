@@ -81,9 +81,10 @@ public class RestElasticClient implements ElasticClient {
         try {
             final Response response = performRequest("GET", "/", null, true);
             try (final InputStream inputStream = response.getEntity().getContent()) {
-                Map<String,Object> info = mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {});
+                Map<String, Object> info = mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {
+                });
                 @SuppressWarnings("unchecked")
-                Map<String,Object> ver = (Map<String,Object>) info.getOrDefault("version", Collections.EMPTY_MAP);
+                Map<String, Object> ver = (Map<String, Object>) info.getOrDefault("version", Collections.EMPTY_MAP);
                 final Matcher m = pattern.matcher((String) ver.get("number"));
                 if (!m.find()) {
                     version = DEFAULT_VERSION;
@@ -107,7 +108,7 @@ public class RestElasticClient implements ElasticClient {
     @Override
     public Map<String, Object> getMapping(String indexName, String type) throws IOException {
         final Map<String, Mapping> mappings = getMappings(indexName, type);
-        final Map<String,Object> properties;
+        final Map<String, Object> properties;
         if (getVersion() < 7 && mappings.containsKey(type)) {
             properties = mappings.get(type).getProperties();
         } else if (getVersion() >= 7) {
@@ -137,7 +138,7 @@ public class RestElasticClient implements ElasticClient {
         final String aliasedIndex = getIndices(indexName).stream().findFirst().orElse(null);
 
         try (final InputStream inputStream = response.getEntity().getContent()) {
-            final Map<String,ElasticMappings> values;
+            final Map<String, ElasticMappings> values;
             if (getVersion() < 7) {
                 values = this.mapper.readValue(inputStream, new TypeReference<Map<String, ElasticMappings>>() {
                 });
@@ -183,10 +184,10 @@ public class RestElasticClient implements ElasticClient {
         }
         pathBuilder.append("/_search");
 
-        final Map<String,Object> requestBody = new HashMap<>();
+        final Map<String, Object> requestBody = new HashMap<>();
 
         if (request.getSize() != null) {
-            requestBody.put("size",  request.getSize());
+            requestBody.put("size", request.getSize());
         }
 
         if (request.getFrom() != null) {
@@ -211,7 +212,12 @@ public class RestElasticClient implements ElasticClient {
 
         if (!request.getSorts().isEmpty()) {
             requestBody.put("sort", request.getSorts());
-        }
+        } /*else {
+            if (request.getScroll() != null) {
+                request.addSort("_doc", "asc");
+                requestBody.put("sort", request.getSorts());
+            }
+        }*/
 
         if (request.getQuery() != null) {
             requestBody.put("query", request.getQuery());
@@ -219,6 +225,13 @@ public class RestElasticClient implements ElasticClient {
 
         if (request.getAggregations() != null) {
             requestBody.put("aggregations", request.getAggregations());
+        }
+
+        if (request.getSliceId() != null) {
+            Map<String, Integer> slice = new HashMap<>();
+            slice.put("id", request.getSliceId());
+            slice.put("max", 5);
+            requestBody.put("slice", slice);
         }
 
         return parseResponse(performRequest("POST", pathBuilder.toString(), requestBody));
@@ -268,7 +281,7 @@ public class RestElasticClient implements ElasticClient {
         return response;
     }
 
-    Response performRequest(String method, String path, Map<String,Object> requestBody) throws IOException {
+    Response performRequest(String method, String path, Map<String, Object> requestBody) throws IOException {
         return performRequest(method, path, requestBody, false);
     }
 
@@ -282,7 +295,7 @@ public class RestElasticClient implements ElasticClient {
     public ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException {
         final String path = "/_search/scroll";
 
-        final Map<String,Object> requestBody = new HashMap<>();
+        final Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
         return parseResponse(performRequest("POST", path, requestBody));
@@ -291,7 +304,7 @@ public class RestElasticClient implements ElasticClient {
     public Response scrollTest(String scrollId, Integer scrollTime) throws IOException {
         final String path = "/_search/scroll";
 
-        final Map<String,Object> requestBody = new HashMap<>();
+        final Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
         Response response = performRequest("POST", path, requestBody);
@@ -306,7 +319,7 @@ public class RestElasticClient implements ElasticClient {
     public void clearScroll(Set<String> scrollIds) throws IOException {
         final String path = "/_search/scroll";
         if (!scrollIds.isEmpty()) {
-            final Map<String,Object> requestBody = new HashMap<>();
+            final Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("scroll_id", scrollIds);
             performRequest("DELETE", path, requestBody);
         }
@@ -326,18 +339,18 @@ public class RestElasticClient implements ElasticClient {
     }
 
     @SuppressWarnings("unchecked")
-    public static void removeMapping(String parent, String key, Map<String,Object> data, String currentParent) {
+    public static void removeMapping(String parent, String key, Map<String, Object> data, String currentParent) {
         Iterator<Entry<String, Object>> it = data.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, Object> entry = it.next();
             if (Objects.equals(currentParent, parent) && entry.getKey().equals(key)) {
                 it.remove();
             } else if (entry.getValue() instanceof Map) {
-                removeMapping(parent, key, (Map<String,Object>) entry.getValue(), entry.getKey());
+                removeMapping(parent, key, (Map<String, Object>) entry.getValue(), entry.getKey());
             } else if (entry.getValue() instanceof List) {
                 ((List<Object>) entry.getValue()).stream()
-                    .filter(item -> item instanceof Map)
-                    .forEach(item -> removeMapping(parent, key, (Map<String,Object>) item, currentParent));
+                        .filter(item -> item instanceof Map)
+                        .forEach(item -> removeMapping(parent, key, (Map<String, Object>) item, currentParent));
             }
         }
     }
@@ -347,8 +360,9 @@ public class RestElasticClient implements ElasticClient {
         try {
             final Response response = performRequest("GET", "/_alias/" + alias, null, true);
             try (final InputStream inputStream = response.getEntity().getContent()) {
-                final Map<String,Object> result;
-                result = this.mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {});
+                final Map<String, Object> result;
+                result = this.mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {
+                });
                 indices = result.keySet();
             }
         } catch (IOException e) {

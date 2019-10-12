@@ -6,6 +6,7 @@ package mil.nga.giat.data.elasticsearch;
 
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -16,10 +17,7 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.*;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -125,15 +123,30 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
             final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
-            final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
-            if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.fine("Search response: " + sr);
-            }
-            if (!scroll) {
-                reader = new ElasticFeatureReader(getState(), sr);
+
+            if (scroll) {
+                List<ElasticResponse> elasticResponses = new ArrayList<>();
+                for (int i = 0; i < 5; i++) {
+                    final ElasticDataStore dataStore1 = getDataStore();
+                    final String docType1 = dataStore1.getDocType(entry.getName());
+                    final boolean scroll1 = !useSortOrPagination(query) && dataStore1.getScrollEnabled();
+                    final ElasticRequest searchRequest1 = prepareSearchRequest(query, scroll1);
+                    searchRequest1.setSliceId(i);
+                    final ElasticResponse sr = dataStore1.getClient().search(dataStore1.getIndexName(), docType1, searchRequest1);
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine("Search response: " + sr);
+                    }
+                    elasticResponses.add(sr);
+                }
+                reader = new ElasticFeatureReaderSlice(getState(), elasticResponses, getSize(query));
             } else {
-                reader = new ElasticFeatureReaderScroll(getState(), sr, getSize(query));
+                final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("Search response: " + sr);
+                }
+                reader = new ElasticFeatureReader(getState(), sr);
             }
+
             if (!filterFullySupported) {
                 reader = new FilteringFeatureReader<>(reader, query.getFilter());
             }

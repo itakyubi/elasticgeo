@@ -27,6 +27,8 @@ class ElasticRequest {
 
     private final List<String> fields;
 
+    private Integer sliceId;
+
     public ElasticRequest() {
         this.sorts = new ArrayList<>();
         this.fields = new ArrayList<>();
@@ -97,4 +99,11 @@ class ElasticRequest {
         this.fields.add(field);
     }
 
+    public Integer getSliceId() {
+        return sliceId;
+    }
+
+    public void setSliceId(Integer sliceId) {
+        this.sliceId = sliceId;
+    }
 }

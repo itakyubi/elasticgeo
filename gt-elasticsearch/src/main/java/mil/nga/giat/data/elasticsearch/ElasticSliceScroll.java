@@ -17,23 +17,29 @@ import java.util.logging.Logger;
  * @author: wuao <wuao@baidu.com>
  * @time: 2019-10-12 09:50
  */
-public class ElasticSliceScroll implements Runnable{
+public class ElasticSliceScroll implements Runnable {
 
     private final static Logger LOGGER = Logging.getLogger(ElasticSliceScroll.class);
 
     private final ElasticDataStore dataStore;
 
-    private final String scrollId;
-
     private List<Response> responses;
 
-    public ElasticSliceScroll(ElasticDataStore dataStore,String scrollId) {
+    private String docType;
+
+    private ElasticRequest elasticRequest;
+
+    private Integer id;
+
+    public ElasticSliceScroll(ElasticDataStore dataStore, String docType, ElasticRequest elasticRequest) {
         this.dataStore = dataStore;
-        this.scrollId = scrollId;
         this.responses = new ArrayList<>();
+        this.docType = docType;
+        this.elasticRequest = elasticRequest;
+        this.id = elasticRequest.getSliceId();
     }
 
-    public List<Response> getResponses(){
+    public List<Response> getResponses() {
         return responses;
     }
 
@@ -41,10 +47,15 @@ public class ElasticSliceScroll implements Runnable{
     @Override
     public void run() {
         try {
-            for (int i = 0; i < 7; ++i) {
-                Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
+            LOGGER.fine(id + "---slice start");
+            final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
+            LOGGER.fine(id + "---Search response: " + sr);
+
+            for (int i = 0; i < 8; ++i) {
+                Response response = dataStore.getClient().scrollTest(sr.getScrollId(), dataStore.getScrollTime());
                 responses.add(response);
             }
+            LOGGER.fine(id + "---slice end");
         } catch (IOException e) {
             e.printStackTrace();
         }

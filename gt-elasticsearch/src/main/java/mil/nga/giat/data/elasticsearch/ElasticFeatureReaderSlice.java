@@ -43,7 +43,7 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
     private int parseTestCount;
 
-    public ElasticFeatureReaderSlice(ContentState contentState, List<ElasticResponse> elasticResponses, int maxFeatures) {
+    public ElasticFeatureReaderSlice(ContentState contentState, String docType, ElasticRequest elasticRequest, int maxFeatures) {
         this.contentState = contentState;
         this.maxFeatures = maxFeatures;
         this.numFeatures = 0;
@@ -59,10 +59,9 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
             List<ElasticSliceScroll> elasticSliceScrolls = new ArrayList<>();
             LOGGER.fine("slice scroll start!");
             for (int i = 0; i < 5; i++) {
-                ElasticResponse elasticResponse = elasticResponses.get(i);
-                processResponse(elasticResponse);
+                elasticRequest.setSliceId(i);
                 final ElasticDataStore dataStore = (ElasticDataStore) contentState.getEntry().getDataStore();
-                ElasticSliceScroll elasticSliceScroll = new ElasticSliceScroll(dataStore, elasticResponse.getScrollId());
+                ElasticSliceScroll elasticSliceScroll = new ElasticSliceScroll(dataStore, docType, elasticRequest);
                 elasticSliceScrolls.add(elasticSliceScroll);
                 Thread sliceThread = new Thread(elasticSliceScroll);
                 sliceThread.start();

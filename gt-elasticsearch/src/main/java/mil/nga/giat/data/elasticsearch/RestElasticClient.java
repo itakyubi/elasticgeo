@@ -237,6 +237,7 @@ public class RestElasticClient implements ElasticClient {
         return parseResponse(performRequest("POST", pathBuilder.toString(), requestBody));
     }
 
+    @Override
     public Response search2(String searchIndices, String type, ElasticRequest request) throws IOException {
         final StringBuilder pathBuilder = new StringBuilder("/" + searchIndices);
         if (getVersion() < 7) {

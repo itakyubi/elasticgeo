@@ -237,6 +237,66 @@ public class RestElasticClient implements ElasticClient {
         return parseResponse(performRequest("POST", pathBuilder.toString(), requestBody));
     }
 
+    public Response search2(String searchIndices, String type, ElasticRequest request) throws IOException {
+        final StringBuilder pathBuilder = new StringBuilder("/" + searchIndices);
+        if (getVersion() < 7) {
+            pathBuilder.append("/" + type);
+        }
+        pathBuilder.append("/_search");
+
+        final Map<String, Object> requestBody = new HashMap<>();
+
+        if (request.getSize() != null) {
+            requestBody.put("size", request.getSize());
+        }
+
+        if (request.getFrom() != null) {
+            requestBody.put("from", request.getFrom());
+        }
+
+        if (request.getScroll() != null) {
+            pathBuilder.append("?scroll=").append(request.getScroll()).append("s");
+        }
+
+        final List<String> sourceIncludes = request.getSourceIncludes();
+        if (sourceIncludes.size() == 1) {
+            requestBody.put("_source", sourceIncludes.get(0));
+        } else if (!sourceIncludes.isEmpty()) {
+            requestBody.put("_source", sourceIncludes);
+        }
+
+        if (!request.getFields().isEmpty()) {
+            final String key = getVersion() >= 5 ? "stored_fields" : "fields";
+            requestBody.put(key, request.getFields());
+        }
+
+        if (!request.getSorts().isEmpty()) {
+            requestBody.put("sort", request.getSorts());
+        } /*else {
+            if (request.getScroll() != null) {
+                request.addSort("_doc", "asc");
+                requestBody.put("sort", request.getSorts());
+            }
+        }*/
+
+        if (request.getQuery() != null) {
+            requestBody.put("query", request.getQuery());
+        }
+
+        if (request.getAggregations() != null) {
+            requestBody.put("aggregations", request.getAggregations());
+        }
+
+        if (request.getSliceId() != null) {
+            Map<String, Integer> slice = new HashMap<>();
+            slice.put("id", request.getSliceId());
+            slice.put("max", 5);
+            requestBody.put("slice", slice);
+        }
+
+        return performRequest("POST", pathBuilder.toString(), requestBody);
+    }
+
     private Response performRequest(String method, String path, Map<String, Object> requestBody, boolean isAdmin) throws IOException {
         final HttpEntity entity;
         if (requestBody != null) {

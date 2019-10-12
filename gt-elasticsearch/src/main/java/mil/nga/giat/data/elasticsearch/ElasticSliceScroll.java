@@ -4,11 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.elasticsearch.client.Response;
 import org.geotools.util.logging.Logging;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ElasticSliceScroll
@@ -43,16 +48,37 @@ public class ElasticSliceScroll implements Runnable {
         return responses;
     }
 
+    private String getScrollId(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        byte[] buffer = new byte[128];
+        int length;
+        length = inputStream.read(buffer);
+        result.write(buffer, 0, length);
+        String str = result.toString(StandardCharsets.UTF_8.name());
+
+        String regex = "(?<=(\"_scroll_id\":\")).*?(?=(\"))";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(str);
+        matcher.find();
+        return matcher.group().trim();
+    }
+
 
     @Override
     public void run() {
         try {
             LOGGER.fine(id + "---slice start");
-            final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
-            LOGGER.fine(id + "---Search response: " + sr);
+            //final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
+            RestElasticClient restElasticClient = (RestElasticClient) dataStore.getClient();
+            Response rep = restElasticClient.search2(dataStore.getIndexName(), docType, elasticRequest);
+            responses.add(rep);
+            InputStream inputStream = rep.getEntity().getContent();
+            String scrollId = getScrollId(inputStream);
+            //LOGGER.fine(id + "---Search response: " + sr);
+            LOGGER.fine(id + "---Search response: ");
 
             for (int i = 0; i < 8; ++i) {
-                Response response = dataStore.getClient().scrollTest(sr.getScrollId(), dataStore.getScrollTime());
+                Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
                 responses.add(response);
             }
             LOGGER.fine(id + "---slice end");

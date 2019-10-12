@@ -69,8 +69,8 @@ public class ElasticSliceScroll implements Runnable {
         try {
             LOGGER.fine(id + "---slice start");
             //final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
-            RestElasticClient restElasticClient = (RestElasticClient) dataStore.getClient();
-            Response rep = restElasticClient.search2(dataStore.getIndexName(), docType, elasticRequest);
+            //RestElasticClient restElasticClient = (RestElasticClient) dataStore.getClient();
+            Response rep = dataStore.getClient().search2(dataStore.getIndexName(), docType, elasticRequest);
             responses.add(rep);
             InputStream inputStream = rep.getEntity().getContent();
             String scrollId = getScrollId(inputStream);

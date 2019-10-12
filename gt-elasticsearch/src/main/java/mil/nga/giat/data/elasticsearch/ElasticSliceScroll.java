@@ -4,9 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.elasticsearch.client.Response;
 import org.geotools.util.logging.Logging;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +26,7 @@ public class ElasticSliceScroll implements Runnable {
 
     private final ElasticDataStore dataStore;
 
-    private List<Response> responses;
+    private List<InputStream> inputStreams;
 
     private String docType;
 
@@ -38,29 +36,32 @@ public class ElasticSliceScroll implements Runnable {
 
     public ElasticSliceScroll(ElasticDataStore dataStore, String docType, ElasticRequest elasticRequest) {
         this.dataStore = dataStore;
-        this.responses = new ArrayList<>();
+        this.inputStreams = new ArrayList<>();
         this.docType = docType;
         this.elasticRequest = elasticRequest;
         this.id = elasticRequest.getSliceId();
     }
 
-    public List<Response> getResponses() {
-        return responses;
+    public List<InputStream> getInputStreams() {
+        return inputStreams;
     }
 
-    private String getScrollId(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream result = new ByteArrayOutputStream();
-        byte[] buffer = new byte[128];
-        int length;
-        length = inputStream.read(buffer);
-        result.write(buffer, 0, length);
-        String str = result.toString(StandardCharsets.UTF_8.name());
-
+    private String getScrollId(String str) {
         String regex = "(?<=(\"_scroll_id\":\")).*?(?=(\"))";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(str);
         matcher.find();
         return matcher.group().trim();
+    }
+
+    private String InputStreamToString(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            result.write(buffer, 0, length);
+        }
+        return result.toString("UTF-8");
     }
 
 
@@ -71,15 +72,18 @@ public class ElasticSliceScroll implements Runnable {
             //final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
             //RestElasticClient restElasticClient = (RestElasticClient) dataStore.getClient();
             Response rep = dataStore.getClient().search2(dataStore.getIndexName(), docType, elasticRequest);
-            responses.add(rep);
+
             InputStream inputStream = rep.getEntity().getContent();
-            String scrollId = getScrollId(inputStream);
+            String content = InputStreamToString(inputStream);
+            String scrollId = getScrollId(content);
+            ByteArrayInputStream stream= new ByteArrayInputStream(content.getBytes());
+            inputStreams.add(stream);
             //LOGGER.fine(id + "---Search response: " + sr);
-            LOGGER.fine(id + "---Search response: ");
+            LOGGER.fine(id + "---Search response");
 
             for (int i = 0; i < 8; ++i) {
                 Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
-                responses.add(response);
+                inputStreams.add(response.getEntity().getContent());
             }
             LOGGER.fine(id + "---slice end");
         } catch (IOException e) {

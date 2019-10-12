@@ -122,11 +122,18 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final ElasticDataStore dataStore = getDataStore();
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
-            final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
 
             if (scroll) {
-                reader = new ElasticFeatureReaderSlice(getState(), docType, searchRequest, getSize(query));
+                int slice_max = 5;
+                List<ElasticRequest> searchRequests = new ArrayList<ElasticRequest>();
+                for(int i = 0;i < slice_max; ++i) {
+                    final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
+                    searchRequest.setSliceId(i);
+                    searchRequests.add(searchRequest);
+                }
+                reader = new ElasticFeatureReaderSlice(getState(), docType, searchRequests, getSize(query));
             } else {
+                final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
                 final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.fine("Search response: " + sr);

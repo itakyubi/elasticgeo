@@ -12,6 +12,7 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -35,7 +36,7 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
     private List<SimpleFeature> simpleFeatures;
 
-    private List<Response> responses;
+    private List<InputStream> inputStreams;
 
     private List<ElasticResponse> searchResponses;
 
@@ -43,13 +44,13 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
     private int parseTestCount;
 
-    public ElasticFeatureReaderSlice(ContentState contentState, String docType, ElasticRequest elasticRequest, int maxFeatures) {
+    public ElasticFeatureReaderSlice(ContentState contentState, String docType, List<ElasticRequest> searchRequests, int maxFeatures) {
         this.contentState = contentState;
         this.maxFeatures = maxFeatures;
         this.numFeatures = 0;
         this.scrollIds = new HashSet<>();
         this.simpleFeatures = new ArrayList<SimpleFeature>();
-        this.responses = new ArrayList<Response>();
+        this.inputStreams = new ArrayList<InputStream>();
         this.searchResponses = new ArrayList<ElasticResponse>();
         this.scrollTestCount = 0;
         this.parseTestCount = 0;
@@ -58,8 +59,8 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
             List<Thread> sliceThreads = new ArrayList<>();
             List<ElasticSliceScroll> elasticSliceScrolls = new ArrayList<>();
             LOGGER.fine("slice scroll start!");
-            for (int i = 0; i < 5; i++) {
-                elasticRequest.setSliceId(i);
+            for (int i = 0; i < searchRequests.size(); i++) {
+                ElasticRequest elasticRequest = searchRequests.get(i);
                 final ElasticDataStore dataStore = (ElasticDataStore) contentState.getEntry().getDataStore();
                 ElasticSliceScroll elasticSliceScroll = new ElasticSliceScroll(dataStore, docType, elasticRequest);
                 elasticSliceScrolls.add(elasticSliceScroll);
@@ -79,10 +80,10 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
             LOGGER.fine("merge scroll response!");
             while (!elasticSliceScrolls.isEmpty()) {
-                ElasticSliceScroll ElasticSliceScroll = elasticSliceScrolls.get(0);
+                ElasticSliceScroll elasticSliceScroll = elasticSliceScrolls.get(0);
                 elasticSliceScrolls.remove(0);
-                List<Response> sliceResponses = ElasticSliceScroll.getResponses();
-                responses.addAll(sliceResponses);
+                List<InputStream> sliceInputStreams = elasticSliceScroll.getInputStreams();
+                inputStreams.addAll(sliceInputStreams);
             }
             LOGGER.fine("merge scroll response end!");
 
@@ -98,10 +99,10 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
         LOGGER.fine("processer.init +++");
         List<Thread> ts = new ArrayList<Thread>();
         List<ReponseToElasticResponse> processers = new ArrayList<ReponseToElasticResponse>();
-        while (!responses.isEmpty()) {
-            Response response = responses.get(0);
-            responses.remove(0);
-            ReponseToElasticResponse processer = new ReponseToElasticResponse(response);
+        while (!inputStreams.isEmpty()) {
+            InputStream inputStream = inputStreams.get(0);
+            inputStreams.remove(0);
+            ReponseToElasticResponse processer = new ReponseToElasticResponse(inputStream);
             processers.add(processer);
             Thread t = new Thread(processer);
             t.start();

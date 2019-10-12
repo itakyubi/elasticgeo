@@ -81,7 +81,7 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
         while(!responses.isEmpty()) {
             Response response = responses.get(0);
             responses.remove(0);
-            ReponseToElasticResponse processer = new ReponseToElasticResponse(response);
+            ReponseToElasticResponse processer = new ReponseToElasticResponse(response.getEntity().getContent());
             processers.add(processer);
             Thread t = new Thread(processer);
             t.start();

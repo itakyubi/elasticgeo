@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat;
 final public class ReponseToElasticResponse implements Runnable{
     private final ObjectMapper mapper;
     private final static DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-    private Response response;
+    private InputStream inputStream;
     private boolean parseDone = false;
 
     public boolean isParseDone() {
@@ -24,16 +24,14 @@ final public class ReponseToElasticResponse implements Runnable{
 
     private ElasticResponse elasticResponse;
 
-    public ReponseToElasticResponse(Response response) {
+    public ReponseToElasticResponse(InputStream inputStream) {
         this.mapper = new ObjectMapper();
         this.mapper.setDateFormat(DATE_FORMAT);
-        this.response = response;
+        this.inputStream = inputStream;
     }
 
     private ElasticResponse parseResponse() throws IOException {
-        try (final InputStream inputStream = response.getEntity().getContent()) {
-            return this.mapper.readValue(inputStream, ElasticResponse.class);
-        }
+        return this.mapper.readValue(inputStream, ElasticResponse.class);
     }
 
     @Override

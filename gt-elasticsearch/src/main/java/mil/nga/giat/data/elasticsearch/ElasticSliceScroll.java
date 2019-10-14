@@ -54,6 +54,15 @@ public class ElasticSliceScroll implements Runnable {
         return matcher.group().trim();
     }
 
+    private int getScrollTimes(String str) {
+        String regex = "(?<=(\"value\":)).*?(?=(,))";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(str);
+        matcher.find();
+        int totalNum = Integer.parseInt(matcher.group().trim());
+        return totalNum / 1000;
+    }
+
     private String InputStreamToString(InputStream inputStream) throws IOException {
         ByteArrayOutputStream result = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
@@ -76,12 +85,13 @@ public class ElasticSliceScroll implements Runnable {
             InputStream inputStream = rep.getEntity().getContent();
             String content = InputStreamToString(inputStream);
             String scrollId = getScrollId(content);
-            ByteArrayInputStream stream= new ByteArrayInputStream(content.getBytes());
+            ByteArrayInputStream stream = new ByteArrayInputStream(content.getBytes());
             inputStreams.add(stream);
             //LOGGER.fine(id + "---Search response: " + sr);
             LOGGER.fine(id + "---Search response");
 
-            for (int i = 0; i < 8; ++i) {
+            int scrollTimes = getScrollTimes(content);
+            for (int i = 0; i < scrollTimes; ++i) {
                 Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
                 inputStreams.add(response.getEntity().getContent());
             }

@@ -49,9 +49,9 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
         this.maxFeatures = maxFeatures;
         this.numFeatures = 0;
         this.scrollIds = new HashSet<>();
-        this.simpleFeatures = new ArrayList<SimpleFeature>();
-        this.inputStreams = new ArrayList<InputStream>();
-        this.searchResponses = new ArrayList<ElasticResponse>();
+        this.simpleFeatures = new ArrayList<>();
+        this.inputStreams = new ArrayList<>();
+        this.searchResponses = new ArrayList<>();
         this.scrollTestCount = 0;
         this.parseTestCount = 0;
         LOGGER.fine("ElasticFeatureReaderSlice init +++ <<<");
@@ -97,8 +97,8 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
 
     private void scrollInit() throws IOException, InterruptedException {
         LOGGER.fine("processer.init +++");
-        List<Thread> ts = new ArrayList<Thread>();
-        List<ReponseToElasticResponse> processers = new ArrayList<ReponseToElasticResponse>();
+        List<Thread> ts = new ArrayList<>();
+        List<ReponseToElasticResponse> processers = new ArrayList<>();
         while (!inputStreams.isEmpty()) {
             InputStream inputStream = inputStreams.get(0);
             inputStreams.remove(0);
@@ -125,7 +125,6 @@ class ElasticFeatureReaderSlice implements FeatureReader<SimpleFeatureType, Simp
             ReponseToElasticResponse processer = processers.get(0);
             processers.remove(0);
             ElasticResponse searchResponse = processer.getElasticResponse();
-//            ElasticResponse searchResponse = dataStore.getClient().parseTest(response);
             searchResponses.add(searchResponse);
         }
         LOGGER.fine("parseTest.init ---");

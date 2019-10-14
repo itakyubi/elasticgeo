@@ -24,11 +24,11 @@ interface ElasticClient extends Closeable {
 
     ElasticResponse search(String searchIndices, String type, ElasticRequest request) throws IOException;
 
-    Response search2(String searchIndices, String type, ElasticRequest request) throws IOException;
+    Response searchWithoutParse(String searchIndices, String type, ElasticRequest request) throws IOException;
 
     ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException;
 
-    Response scrollTest(String scrollId, Integer scrollTime) throws IOException;
+    Response scrollWithoutParse(String scrollId, Integer scrollTime) throws IOException;
 
     ElasticResponse parseTest(Response response) throws IOException;
 

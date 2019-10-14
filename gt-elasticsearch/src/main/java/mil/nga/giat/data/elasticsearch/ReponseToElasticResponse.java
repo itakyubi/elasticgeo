@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
-final public class ReponseToElasticResponse implements Runnable{
+final public class ReponseToElasticResponse implements Runnable {
     private final ObjectMapper mapper;
     private final static DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
     private InputStream inputStream;
@@ -35,7 +35,7 @@ final public class ReponseToElasticResponse implements Runnable{
     }
 
     @Override
-    public void run(){
+    public void run() {
         try {
             parseDone = false;
             elasticResponse = parseResponse();

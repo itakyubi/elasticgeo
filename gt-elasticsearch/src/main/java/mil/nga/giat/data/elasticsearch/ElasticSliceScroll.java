@@ -60,7 +60,7 @@ public class ElasticSliceScroll implements Runnable {
         Matcher matcher = pattern.matcher(str);
         matcher.find();
         int totalNum = Integer.parseInt(matcher.group().trim());
-        return totalNum / 1000;
+        return totalNum / dataStore.getScrollSize().intValue();
     }
 
     private String InputStreamToString(InputStream inputStream) throws IOException {
@@ -78,21 +78,17 @@ public class ElasticSliceScroll implements Runnable {
     public void run() {
         try {
             LOGGER.fine(id + "---slice start");
-            //final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, elasticRequest);
-            //RestElasticClient restElasticClient = (RestElasticClient) dataStore.getClient();
-            Response rep = dataStore.getClient().search2(dataStore.getIndexName(), docType, elasticRequest);
-
+            Response rep = dataStore.getClient().searchWithoutParse(dataStore.getIndexName(), docType, elasticRequest);
             InputStream inputStream = rep.getEntity().getContent();
             String content = InputStreamToString(inputStream);
-            String scrollId = getScrollId(content);
             ByteArrayInputStream stream = new ByteArrayInputStream(content.getBytes());
             inputStreams.add(stream);
-            //LOGGER.fine(id + "---Search response: " + sr);
             LOGGER.fine(id + "---Search response");
 
+            String scrollId = getScrollId(content);
             int scrollTimes = getScrollTimes(content);
             for (int i = 0; i < scrollTimes; ++i) {
-                Response response = dataStore.getClient().scrollTest(scrollId, dataStore.getScrollTime());
+                Response response = dataStore.getClient().scrollWithoutParse(scrollId, dataStore.getScrollTime());
                 inputStreams.add(response.getEntity().getContent());
             }
             LOGGER.fine(id + "---slice end");

@@ -29,6 +29,8 @@ class ElasticRequest {
 
     private Integer sliceId;
 
+    private Integer sliceMax;
+
     public ElasticRequest() {
         this.sorts = new ArrayList<>();
         this.fields = new ArrayList<>();
@@ -105,5 +107,13 @@ class ElasticRequest {
 
     public void setSliceId(Integer sliceId) {
         this.sliceId = sliceId;
+    }
+
+    public Integer getSliceMax() {
+        return sliceMax;
+    }
+
+    public void setSliceMax(Integer sliceMax) {
+        this.sliceMax = sliceMax;
     }
 }

@@ -212,12 +212,7 @@ public class RestElasticClient implements ElasticClient {
 
         if (!request.getSorts().isEmpty()) {
             requestBody.put("sort", request.getSorts());
-        } /*else {
-            if (request.getScroll() != null) {
-                request.addSort("_doc", "asc");
-                requestBody.put("sort", request.getSorts());
-            }
-        }*/
+        }
 
         if (request.getQuery() != null) {
             requestBody.put("query", request.getQuery());
@@ -238,7 +233,7 @@ public class RestElasticClient implements ElasticClient {
     }
 
     @Override
-    public Response search2(String searchIndices, String type, ElasticRequest request) throws IOException {
+    public Response searchWithoutParse(String searchIndices, String type, ElasticRequest request) throws IOException {
         final StringBuilder pathBuilder = new StringBuilder("/" + searchIndices);
         if (getVersion() < 7) {
             pathBuilder.append("/" + type);
@@ -291,7 +286,7 @@ public class RestElasticClient implements ElasticClient {
         if (request.getSliceId() != null) {
             Map<String, Integer> slice = new HashMap<>();
             slice.put("id", request.getSliceId());
-            slice.put("max", 5);
+            slice.put("max", request.getSliceMax());
             requestBody.put("slice", slice);
         }
 
@@ -362,14 +357,13 @@ public class RestElasticClient implements ElasticClient {
         return parseResponse(performRequest("POST", path, requestBody));
     }
 
-    public Response scrollTest(String scrollId, Integer scrollTime) throws IOException {
+    public Response scrollWithoutParse(String scrollId, Integer scrollTime) throws IOException {
         final String path = "/_search/scroll";
 
         final Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
-        Response response = performRequest("POST", path, requestBody);
-        return response;
+        return performRequest("POST", path, requestBody);
     }
 
     public ElasticResponse parseTest(Response response) throws IOException {

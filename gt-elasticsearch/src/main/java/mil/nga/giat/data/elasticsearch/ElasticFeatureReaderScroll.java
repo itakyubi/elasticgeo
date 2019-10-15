@@ -69,10 +69,10 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
         dataStore = (ElasticDataStore) contentState.getEntry().getDataStore();
 
         for (scrollTestCount = 0; scrollTestCount < 4; ++scrollTestCount) {
-            LOGGER.fine("scrollTest +++ count:" + scrollTestCount);
-            Response response = dataStore.getClient().scrollTest(nextScrollId, dataStore.getScrollTime());
+            LOGGER.fine("scrollWithoutParse +++ count:" + scrollTestCount);
+            Response response = dataStore.getClient().scrollWithoutParse(nextScrollId, dataStore.getScrollTime());
             responses.add(response);
-            LOGGER.fine("scrollTest ---");
+            LOGGER.fine("scrollWithoutParse ---");
         }
 
         LOGGER.fine("processer.init +++");

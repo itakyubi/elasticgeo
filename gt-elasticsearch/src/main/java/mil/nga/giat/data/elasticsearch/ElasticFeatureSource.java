@@ -115,11 +115,12 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
 
             if (scroll) {
-                int slice_max = 5;
-                List<ElasticRequest> searchRequests = new ArrayList<ElasticRequest>();
-                for(int i = 0;i < slice_max; ++i) {
+                int sliceMax = 5;
+                List<ElasticRequest> searchRequests = new ArrayList<>();
+                for (int i = 0; i < sliceMax; ++i) {
                     final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
                     searchRequest.setSliceId(i);
+                    searchRequest.setSliceMax(sliceMax);
                     searchRequests.add(searchRequest);
                 }
                 reader = new ElasticFeatureReaderSlice(getState(), docType, searchRequests, getSize(query));

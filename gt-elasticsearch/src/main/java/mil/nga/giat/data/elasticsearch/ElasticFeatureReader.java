@@ -124,12 +124,14 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
         for (final AttributeDescriptor descriptor : type.getAttributeDescriptors()) {
             final String name = descriptor.getType().getName().getLocalPart();
             final String sourceName = (String) descriptor.getUserData().get(FULL_NAME);
-
+		
             List<Object> values = hit.field(sourceName);
             if (values == null && source != null) {
                 // read field from source
                 values = parserUtil.readField(source, sourceName);
             }
+			
+			//LOGGER.fine("sourceName:" + sourceName + ",values:" + values);
 
             if (values == null && sourceName.equals("_id")) {
                 builder.set(name, hit.getId());

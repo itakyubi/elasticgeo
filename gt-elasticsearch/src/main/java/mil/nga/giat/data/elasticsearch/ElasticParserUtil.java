@@ -20,8 +20,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Polygon;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKTReader;
+import org.locationtech.jts.io.*;
 
 import com.github.davidmoten.geo.GeoHash;
 import com.github.davidmoten.geo.LatLong;
@@ -72,10 +71,15 @@ class ElasticParserUtil {
 
     private final WKTReader wktReader;
 
+    private final WKBWriter wkbWriter;
+    private final WKBReader wkbReader;
+
     public ElasticParserUtil() {
         this.geometryFactory = new GeometryFactory();
         this.geodeticCalculator = new GeodeticCalculator(DefaultEllipsoid.WGS84);
         this.wktReader = new WKTReader();
+        this.wkbWriter = new WKBWriter();
+        this.wkbReader = new WKBReader();
     }
 
     /**
@@ -87,7 +91,7 @@ class ElasticParserUtil {
      * @return Geometry
      */
     @SuppressWarnings("unchecked")
-    public Geometry createGeometry(Object obj) {
+    public Geometry createGeometry(Object obj){
         final Geometry geometry;
         if (obj instanceof String) {
             // geo_point by string
@@ -136,7 +140,20 @@ class ElasticParserUtil {
         } else {
             geometry = null;
         }
-        return geometry;
+
+        byte[] out = wkbWriter.write(geometry);
+        String str = WKBWriter.toHex(out);
+        LOGGER.fine("wkb:" + str);
+        Geometry geometry_new = null;
+        try {
+            geometry_new =  wkbReader.read(WKBReader.hexToBytes(str));
+            //final Geometry geometry_new = wkbReader.read(out);
+        }
+        catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return geometry_new;
+        //return geometry;
     }
 
     /**

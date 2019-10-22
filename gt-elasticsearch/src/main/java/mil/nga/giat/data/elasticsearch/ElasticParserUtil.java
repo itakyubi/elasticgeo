@@ -85,7 +85,6 @@ class ElasticParserUtil {
     private final WKBReader wkbReader;
     final Base64.Decoder base64Decoder = Base64.getMimeDecoder();
     final Base64.Encoder base64Encoder = Base64.getMimeEncoder();
-
     private String id;
     private Integer gid;
     private String wkbBase64;
@@ -183,9 +182,11 @@ class ElasticParserUtil {
             LOGGER.fine("gid:" + gid.toString());
 
             Map<String, Object> jsonMap = new HashMap<>();
+
             jsonMap.put("gid", gid);
             jsonMap.put("wkb_shape", wkbBase64);
             jsonMap.put("shape",obj);
+
             BulkRequest request = new BulkRequest();
             request.add(new IndexRequest("wkb_sheng").id(id).source(jsonMap));
             BulkResponse bulkResponse = null;

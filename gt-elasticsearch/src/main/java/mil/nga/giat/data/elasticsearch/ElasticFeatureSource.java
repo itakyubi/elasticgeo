@@ -121,6 +121,8 @@ class ElasticFeatureSource extends ContentFeatureSource {
                     final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
                     searchRequest.setSliceId(i);
                     searchRequest.setSliceMax(sliceMax);
+                    searchRequest.addSourceInclude("gid");
+                    searchRequest.addSourceInclude("wkb_shape");
                     searchRequests.add(searchRequest);
                 }
                 reader = new ElasticFeatureReaderSlice(getState(), docType, searchRequests, getSize(query));

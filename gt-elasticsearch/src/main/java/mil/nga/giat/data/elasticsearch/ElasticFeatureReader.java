@@ -132,12 +132,14 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
             }
 
 			// debug for wkb base64	+++
+            /*
             if (sourceName.equals("_id")) {
                 parserUtil.setId(hit.getId());
             }
             if (values != null && sourceName.equals("gid")) {
                 parserUtil.setGid((Integer) values.get(0));
             }
+             */
 			// debug for wkb base64	---
 
             if (values == null && sourceName.equals("_id")) {
@@ -150,6 +152,8 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 builder.set(name, score);
             } else if (values == null && sourceName.equals("_relative_score")) {
                 builder.set(name, relativeScore);
+            } else if (values == null && sourceName.equals("wkb_shape")) {
+                builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
             } else if (values != null && Geometry.class.isAssignableFrom(descriptor.getType().getBinding())) {
                 if (values.size() == 1) {
                     builder.set(name, parserUtil.createGeometry(values.get(0)));

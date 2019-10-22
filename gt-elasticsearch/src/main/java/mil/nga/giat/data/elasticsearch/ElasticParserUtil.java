@@ -81,6 +81,7 @@ class ElasticParserUtil {
     private final WKTReader wktReader;
 
 	// debug for wkb base64	+++
+    /*
     private final WKBWriter wkbWriter;
     private final WKBReader wkbReader;
     final Base64.Decoder base64Decoder = Base64.getMimeDecoder();
@@ -100,13 +101,21 @@ class ElasticParserUtil {
     public void setWkbBase64(String wkbBase64) {
         this.wkbBase64 = wkbBase64;
     }
+    */
 	// debug for wkb base64	---
+    private final WKBReader wkbReader;
+    final Base64.Decoder base64Decoder = Base64.getMimeDecoder();
 
     public ElasticParserUtil() {
         this.geometryFactory = new GeometryFactory();
         this.geodeticCalculator = new GeodeticCalculator(DefaultEllipsoid.WGS84);
         this.wktReader = new WKTReader();
+        // debug for wkb base64	+++
+        /*
         this.wkbWriter = new WKBWriter();
+        this.wkbReader = new WKBReader();
+         */
+        // debug for wkb base64	---
         this.wkbReader = new WKBReader();
     }
 
@@ -170,6 +179,7 @@ class ElasticParserUtil {
         }
 
 		// debug for wkb base64	+++
+        /*
         byte[] wkbByte = wkbWriter.write(geometry); // 把之前的geometry转成out字节流
         wkbBase64 = base64Encoder.encodeToString(wkbByte);//字节流转base64
         //LOGGER.fine("wkb:" + str);
@@ -212,7 +222,27 @@ class ElasticParserUtil {
         }
         return geometry_new;
 		// debug for wkb base64	---
-        //return geometry;
+
+         */
+        return geometry;
+    }
+
+    public Geometry createGeometryFromWkb(Object obj){
+        Geometry geometry = null;
+        if (obj instanceof String) {
+            // geo_point by string
+            byte[] wkbByte = base64Decoder.decode(obj.toString());//base64转字节流
+            try {
+                geometry =  wkbReader.read(wkbByte); // 字节流 转成 geometry
+            }
+            catch (ParseException e) {
+                e.printStackTrace();
+            }
+        } else {
+            geometry = null;
+        }
+
+        return geometry;
     }
 
     /**

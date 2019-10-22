@@ -4,6 +4,7 @@
  */
 package mil.nga.giat.data.elasticsearch;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,14 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
@@ -73,6 +82,29 @@ class ElasticParserUtil {
 
     private final WKBWriter wkbWriter;
     private final WKBReader wkbReader;
+    final Base64.Decoder base64Decoder = Base64.getMimeDecoder();
+    final Base64.Encoder base64Encoder = Base64.getMimeEncoder();
+
+    private String id;
+    private Integer gid;
+    private String shape;
+    private String wkbBase64;
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setGid(Integer gid) {
+        this.gid = gid;
+    }
+
+    public void setShape(String shape) {
+        this.shape = shape;
+    }
+
+    public void setWkbBase64(String wkbBase64) {
+        this.wkbBase64 = wkbBase64;
+    }
 
     public ElasticParserUtil() {
         this.geometryFactory = new GeometryFactory();
@@ -96,6 +128,7 @@ class ElasticParserUtil {
         if (obj instanceof String) {
             // geo_point by string
             final Matcher listMatcher = GEO_POINT_PATTERN.matcher((String) obj);
+            setShape((String) obj);
             if (listMatcher.matches()) {
                 // coordinate
                 final double y = Double.valueOf(listMatcher.group(1));
@@ -141,13 +174,40 @@ class ElasticParserUtil {
             geometry = null;
         }
 
-        byte[] out = wkbWriter.write(geometry);
-        String str = WKBWriter.toHex(out);
-        LOGGER.fine("wkb:" + str);
+        byte[] wkbByte = wkbWriter.write(geometry); // 把之前的geometry转成out字节流
+        wkbBase64 = base64Encoder.encodeToString(wkbByte);//字节流转base64
+        //LOGGER.fine("wkb:" + str);
+        {
+            //RestClientBuilder builder = RestClient.builder(new HttpHost("106.12.154.114", 9200, "http"));
+            RestClientBuilder builder = RestClient.builder(new HttpHost("192.168.0.26", 9200, "http"));
+            RestHighLevelClient client = new RestHighLevelClient(builder);
+
+            LOGGER.fine("id:" + id);
+            LOGGER.fine("gid:" + gid.toString());
+
+            Map<String, Object> jsonMap = new HashMap<>();
+            jsonMap.put("gid", gid.toString());
+            jsonMap.put("wkb_shape", wkbBase64);
+            jsonMap.put("shape",shape);
+            BulkRequest request = new BulkRequest();
+            request.add(new IndexRequest("wkb_sheng").id(id).source(jsonMap));
+            BulkResponse bulkResponse = null;
+            try {
+                bulkResponse = client.bulk(request, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println(bulkResponse.getTook());
+            try {
+                client.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        byte[] wkbByte_new = base64Decoder.decode(wkbBase64);//base64转字节流
         Geometry geometry_new = null;
         try {
-            geometry_new =  wkbReader.read(WKBReader.hexToBytes(str));
-            //final Geometry geometry_new = wkbReader.read(out);
+            geometry_new =  wkbReader.read(wkbByte_new); // 字节流 转成 geometry
         }
         catch (ParseException e) {
             e.printStackTrace();

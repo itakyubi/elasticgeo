@@ -131,7 +131,12 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 values = parserUtil.readField(source, sourceName);
             }
 			
-			//LOGGER.fine("sourceName:" + sourceName + ",values:" + values);
+			LOGGER.fine("sourceName:" + sourceName + ",values:" + values);
+            if (values != null && sourceName.equals("_id")) {
+                parserUtil.setId(hit.getId());
+            } else if (values != null && sourceName.equals("gid")) {
+                parserUtil.setGid((Integer) values.get(0));
+            }
 
             if (values == null && sourceName.equals("_id")) {
                 builder.set(name, hit.getId());

@@ -141,7 +141,9 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
             }
              */
 			// debug for wkb base64	---
-
+            LOGGER.fine("sourceName:" + sourceName);
+            Geometry tmpGeometry1 = null;
+            Geometry tmpGeometry2 = null;
             if (values == null && sourceName.equals("_id")) {
                 builder.set(name, hit.getId());
             } else if (values == null && sourceName.equals("_index")) {
@@ -152,14 +154,23 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 builder.set(name, score);
             } else if (values == null && sourceName.equals("_relative_score")) {
                 builder.set(name, relativeScore);
-            } else if (values == null && sourceName.equals("wkb_shape")) {
-                builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
+            } else if (values != null && sourceName.equals("wkb_shape")) {
+                LOGGER.fine("wkb name:" + name);
+                tmpGeometry1 = parserUtil.createGeometryFromWkb(values.get(0));
+                //builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
+                LOGGER.fine("0 tmpGeometry1:");
+                builder.set("shape", tmpGeometry1);
             } else if (values != null && Geometry.class.isAssignableFrom(descriptor.getType().getBinding())) {
+                /*
                 if (values.size() == 1) {
-                    builder.set(name, parserUtil.createGeometry(values.get(0)));
+                    LOGGER.fine("values.size() == 1 wkt name:" + name);
+                    //tmpGeometry2 = parserUtil.createGeometry(values.get(0));
+                    //builder.set(name, parserUtil.createGeometry(values.get(0)));
+                    LOGGER.fine("1 tmpGeometry1:" + tmpGeometry1);
                 } else {
+                    LOGGER.fine("else wkt name:" + name);
                     builder.set(name, parserUtil.createGeometry(values));
-                }
+                }*/
             } else if (values != null && Date.class.isAssignableFrom(descriptor.getType().getBinding())) {
                 Object dataVal = values.get(0);
                 if (dataVal instanceof Double) {

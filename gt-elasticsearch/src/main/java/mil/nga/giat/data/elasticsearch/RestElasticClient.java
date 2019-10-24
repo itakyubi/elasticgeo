@@ -4,42 +4,29 @@
  */
 package mil.nga.giat.data.elasticsearch;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import mil.nga.giat.data.elasticsearch.ElasticMappings.Mapping;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.*;
 import org.geotools.util.logging.Logging;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RestElasticClient implements ElasticClient {
 
@@ -260,8 +247,10 @@ public class RestElasticClient implements ElasticClient {
         } else {
             LOGGER.fine(String.format("Performing request with %s credentials", isAdmin ? "user" : "proxy"));
         }
+		
+		LOGGER.fine("call client.performRequest +++");
         final Response response = client.performRequest(request);
-        LOGGER.fine("performRequest done");
+		LOGGER.fine("call client.performRequest ---");
         if (response.getStatusLine().getStatusCode() >= 400) {
             throw new IOException("Error executing request: " + response.getStatusLine().getReasonPhrase());
         }
@@ -272,27 +261,38 @@ public class RestElasticClient implements ElasticClient {
         return performRequest(method, path, requestBody, false);
     }
 
+    private String InputStreamToString(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            result.write(buffer, 0, length);
+        }
+        return result.toString("UTF-8");
+    }
+
+    private String deleteShape(String s){
+        String regex = ",\"shape\":.*?}";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(s);
+        s = matcher.replaceAll("");
+        return s;
+    }
+
     private ElasticResponse parseResponse(final Response response) throws IOException {
-        LOGGER.fine("parseResponse start");
-        final InputStream inputStream = response.getEntity().getContent();
-        LOGGER.fine("inputStream done");
-        ElasticResponse elasticResponse = this.mapper.readValue(inputStream, ElasticResponse.class);
-        LOGGER.fine("readValue done");
-        return elasticResponse;
-        /*try (final InputStream inputStream = response.getEntity().getContent()) {
+    	LOGGER.fine("call parseResponse +++");
+        try (final InputStream inputStream = response.getEntity().getContent()) {
             return this.mapper.readValue(inputStream, ElasticResponse.class);
-        }*/
+        }
     }
 
     @Override
     public ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException {
-        LOGGER.fine("scroll start");
         final String path = "/_search/scroll";
 
         final Map<String,Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
-        LOGGER.fine("scroll parseResponse start");
         return parseResponse(performRequest("POST", path, requestBody));
     }
 

@@ -36,25 +36,20 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
     private final Set<String> scrollIds;
 
     public ElasticFeatureReaderScroll(ContentState contentState, ElasticResponse searchResponse, int maxFeatures) {
-        LOGGER.fine("ElasticFeatureReaderScroll start");
         this.contentState = contentState;
         this.maxFeatures = maxFeatures;
         this.numFeatures = 0;
         this.scrollIds = new HashSet<>();
         processResponse(searchResponse);
-        LOGGER.fine("ElasticFeatureReaderScroll end");
     }
 
     private void advanceScroll() throws IOException {
-        LOGGER.fine("advanceScroll start");
         final ElasticDataStore dataStore;
         dataStore = (ElasticDataStore) contentState.getEntry().getDataStore();
         processResponse(dataStore.getClient().scroll(nextScrollId, dataStore.getScrollTime()));
-        LOGGER.fine("advanceScroll end");
     }
 
     private void processResponse(ElasticResponse searchResponse) {
-        LOGGER.fine("processResponse start");
         final int numHits = searchResponse.getNumHits();
         final List<ElasticHit> hits;
         if (numFeatures+numHits <= maxFeatures) {
@@ -68,7 +63,6 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
         lastScroll = numHits == 0 || numFeatures+hits.size()>=maxFeatures;
         LOGGER.fine("Scoll numHits=" + hits.size() + " (total=" + numFeatures+hits.size());
         scrollIds.add(nextScrollId);
-        LOGGER.fine("processResponse end");
     }
 
     @Override

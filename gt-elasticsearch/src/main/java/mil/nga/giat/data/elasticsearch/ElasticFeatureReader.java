@@ -5,14 +5,7 @@
 package mil.nga.giat.data.elasticsearch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import mil.nga.giat.data.elasticsearch.ElasticDataStore.ArrayEncoding;
-import mil.nga.giat.shaded.es.common.joda.Joda;
-import mil.nga.giat.shaded.joda.time.format.DateTimeFormatter;
-
-import static mil.nga.giat.data.elasticsearch.ElasticConstants.DATE_FORMAT;
-import static mil.nga.giat.data.elasticsearch.ElasticConstants.FULL_NAME;
-
 import org.geotools.data.FeatureReader;
 import org.geotools.data.store.ContentState;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
@@ -23,12 +16,10 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
+
+import static mil.nga.giat.data.elasticsearch.ElasticConstants.FULL_NAME;
 
 /**
  * FeatureReader access to the Elasticsearch index.
@@ -131,23 +122,48 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 values = parserUtil.readField(source, sourceName);
             }
 
+            if (values != null && sourceName.equals("wkb_shape")) {
+                //LOGGER.fine("wkb name:" + name);
+                Geometry tmpGeometry1 = parserUtil.createGeometryFromWkb(values.get(0));
+                //builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
+                //LOGGER.fine("0 tmpGeometry1:");
+                builder.set("shape", tmpGeometry1);
+            } else {
+                continue;
+            }
+
+            //LOGGER.fine("sourceName:" + sourceName);
+            Geometry tmpGeometry1 = null;
+            //Geometry tmpGeometry2 = null;
             if (values == null && sourceName.equals("_id")) {
-                builder.set(name, hit.getId());
+                //builder.set(name, hit.getId());
             } else if (values == null && sourceName.equals("_index")) {
-                builder.set(name, hit.getIndex());
+                //builder.set(name, hit.getIndex());
             } else if (values == null && sourceName.equals("_type")) {
-                builder.set(name, hit.getType());
+                //builder.set(name, hit.getType());
             } else if (values == null && sourceName.equals("_score")) {
-                builder.set(name, score);
+                //builder.set(name, score);
             } else if (values == null && sourceName.equals("_relative_score")) {
-                builder.set(name, relativeScore);
+                //builder.set(name, relativeScore);
+            } else if (values != null && sourceName.equals("wkb_shape")) {
+                //LOGGER.fine("wkb name:" + name);
+                tmpGeometry1 = parserUtil.createGeometryFromWkb(values.get(0));
+                //builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
+                //LOGGER.fine("0 tmpGeometry1:");
+                builder.set("shape", tmpGeometry1);
             } else if (values != null && Geometry.class.isAssignableFrom(descriptor.getType().getBinding())) {
+                /*
                 if (values.size() == 1) {
-                    builder.set(name, parserUtil.createGeometry(values.get(0)));
+                    LOGGER.fine("values.size() == 1 wkt name:" + name);
+                    //tmpGeometry2 = parserUtil.createGeometry(values.get(0));
+                    //builder.set(name, parserUtil.createGeometry(values.get(0)));
+                    LOGGER.fine("1 tmpGeometry1:" + tmpGeometry1);
                 } else {
+                    LOGGER.fine("else wkt name:" + name);
                     builder.set(name, parserUtil.createGeometry(values));
-                }
+                }*/
             } else if (values != null && Date.class.isAssignableFrom(descriptor.getType().getBinding())) {
+                /*
                 Object dataVal = values.get(0);
                 if (dataVal instanceof Double) {
                     builder.set(name, new Date(Math.round((Double) dataVal)));
@@ -161,10 +177,11 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
                     Date date = dateFormatter.parseDateTime((String) dataVal).toDate();
                     builder.set(name, date);
-                }
+                }*/
             } else if (values != null && values.size() == 1) {
-                builder.set(name, values.get(0));
+                //builder.set(name, values.get(0));
             } else if (values != null && !name.equals("_aggregation")) {
+                /*
                 final Object value;
                 if (arrayEncoding == ArrayEncoding.CSV) {
                     // only include first array element when using CSV array encoding
@@ -172,7 +189,7 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 } else {
                     value = values;
                 }
-                builder.set(name, value);
+                builder.set(name, value);*/
             }
         }
 

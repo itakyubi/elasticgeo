@@ -4,6 +4,17 @@
  */
 package mil.nga.giat.data.elasticsearch;
 
+import com.github.davidmoten.geo.GeoHash;
+import com.github.davidmoten.geo.LatLong;
+import org.geotools.referencing.GeodeticCalculator;
+import org.geotools.referencing.datum.DefaultEllipsoid;
+import org.geotools.util.logging.Logging;
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKTReader;
+
+import java.awt.geom.Point2D;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -11,23 +22,6 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.geotools.util.logging.Logging;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.Polygon;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKTReader;
-
-import com.github.davidmoten.geo.GeoHash;
-import com.github.davidmoten.geo.LatLong;
-import java.awt.geom.Point2D;
-import org.geotools.referencing.GeodeticCalculator;
-import org.geotools.referencing.datum.DefaultEllipsoid;
 
 /**
  * Utilities for parsing Elasticsearch document source and field content to
@@ -72,10 +66,14 @@ class ElasticParserUtil {
 
     private final WKTReader wktReader;
 
+    private final WKBReader wkbReader;
+    final Base64.Decoder base64Decoder = Base64.getMimeDecoder();
+
     public ElasticParserUtil() {
         this.geometryFactory = new GeometryFactory();
         this.geodeticCalculator = new GeodeticCalculator(DefaultEllipsoid.WGS84);
         this.wktReader = new WKTReader();
+        this.wkbReader = new WKBReader();
     }
 
     /**
@@ -136,6 +134,25 @@ class ElasticParserUtil {
         } else {
             geometry = null;
         }
+
+        return geometry;
+    }
+
+    public Geometry createGeometryFromWkb(Object obj){
+        Geometry geometry = null;
+        if (obj instanceof String) {
+            // geo_point by string
+            byte[] wkbByte = base64Decoder.decode(obj.toString());//base64 to String
+            try {
+                geometry =  wkbReader.read(wkbByte); // byte[] to geometry
+            }
+            catch (ParseException e) {
+                e.printStackTrace();
+            }
+        } else {
+            geometry = null;
+        }
+
         return geometry;
     }
 

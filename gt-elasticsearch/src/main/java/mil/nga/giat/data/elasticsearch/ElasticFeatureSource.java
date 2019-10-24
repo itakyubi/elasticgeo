@@ -5,24 +5,6 @@
 package mil.nga.giat.data.elasticsearch;
 
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.FilteringFeatureReader;
 import org.geotools.data.Query;
@@ -38,9 +20,16 @@ import org.opengis.filter.sort.SortBy;
 import org.opengis.filter.sort.SortOrder;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * Provides access to a specific type within the Elasticsearch index described
  * by the associated data store.
+ *
  */
 class ElasticFeatureSource extends ContentFeatureSource {
 
@@ -125,7 +114,12 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
             final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
-            final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
+            //searchRequest.addSourceInclude("gid");
+            //searchRequest.addSourceInclude("wkb_shape");
+			LOGGER.fine("call search +++");
+            final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);	
+			LOGGER.fine("call parseResponse ---");
+			LOGGER.fine("call search ---");
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("Search response: " + sr);
             }
@@ -152,7 +146,7 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
         LOGGER.fine("Preparing " + docType + " (" + entry.getName() + ") query");
         if (!scroll) {
-            if (query.getSortBy() != null) {
+            if (query.getSortBy()!=null){
                 for (final SortBy sort : query.getSortBy()) {
                     final String sortOrder = sort.getSortOrder().toSQL().toLowerCase();
                     if (sort.getPropertyName() != null) {
@@ -196,9 +190,9 @@ class ElasticFeatureSource extends ContentFeatureSource {
             LOGGER.fine("Filter is not fully supported by native Elasticsearch."
                     + " Additional post-query filtering will be performed.");
         }
-        final Map<String, Object> queryBuilder = filterToElastic.getQueryBuilder();
+        final Map<String,Object> queryBuilder = filterToElastic.getQueryBuilder();
 
-        final Map<String, Object> nativeQueryBuilder = filterToElastic.getNativeQueryBuilder();
+        final Map<String,Object> nativeQueryBuilder = filterToElastic.getNativeQueryBuilder();
 
         searchRequest.setQuery(queryBuilder);
 
@@ -250,7 +244,7 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
     private boolean useSortOrPagination(Query query) {
         return (query.getSortBy() != null && query.getSortBy().length > 0) ||
-                query.getStartIndex() != null;
+                query.getStartIndex()!=null;
     }
 
     private int getSize(Query query) {

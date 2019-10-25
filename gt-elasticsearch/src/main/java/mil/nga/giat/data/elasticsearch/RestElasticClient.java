@@ -184,16 +184,20 @@ public class RestElasticClient implements ElasticClient {
             pathBuilder.append("?scroll=").append(request.getScroll()).append("s");
         }
 
-        final List<String> sourceIncludes = request.getSourceIncludes();
-        if (sourceIncludes.size() == 1) {
-            requestBody.put("_source", sourceIncludes.get(0));
-        } else if (!sourceIncludes.isEmpty()) {
-            requestBody.put("_source", sourceIncludes);
-        }
+        if(request.isSourceShow())  {
+            final List<String> sourceIncludes = request.getSourceIncludes();
+            if (sourceIncludes.size() == 1) {
+                requestBody.put("_source", sourceIncludes.get(0));
+            } else if (!sourceIncludes.isEmpty()) {
+                requestBody.put("_source", sourceIncludes);
+            }
 
-        if (!request.getFields().isEmpty()) {
-            final String key = getVersion() >= 5 ? "stored_fields" : "fields";
-            requestBody.put(key, request.getFields());
+            if (!request.getFields().isEmpty()) {
+                final String key = getVersion() >= 5 ? "stored_fields" : "fields";
+                requestBody.put(key, request.getFields());
+            }
+        } else {
+            requestBody.put("_source", false);
         }
 
         if (!request.getSorts().isEmpty()) {

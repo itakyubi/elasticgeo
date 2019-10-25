@@ -94,14 +94,21 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
             nextAggregation();
             id = null;
         }
+
         return builder.buildFeature(id);
     }
 
     private String nextHit() {
         final ElasticHit hit = searchHitIterator.next();
-        final SimpleFeatureType type = getFeatureType();
+        //final SimpleFeatureType type = getFeatureType();
         final Map<String, Object> source = hit.getSource();
 
+        Geometry tmpGeometry = parserUtil.createGeometryFromWkb(source.get("wkb"));
+        builder.set("shape", tmpGeometry);
+
+        return state.getEntry().getTypeName() + "." + hit.getId();
+
+        /*
         final Float score;
         final Float relativeScore;
         if (hit.getScore() != null && !Float.isNaN(hit.getScore()) && maxScore>0) {
@@ -122,11 +129,13 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 values = parserUtil.readField(source, sourceName);
             }
 
-            if (values != null && sourceName.equals("wkb_shape")) {
+            //LOGGER.fine("sourceName:" + sourceName);
+
+            if (sourceName.equals("shape")) {
                 //LOGGER.fine("wkb name:" + name);
-                Geometry tmpGeometry1 = parserUtil.createGeometryFromWkb(values.get(0));
+                Geometry tmpGeometry1 = parserUtil.createGeometryFromWkb(source.get("wkb"));
                 //builder.set(name, parserUtil.createGeometryFromWkb(values.get(0)));
-                //LOGGER.fine("0 tmpGeometry1:");
+                //LOGGER.fine("tmpGeometry1:" + tmpGeometry1);
                 builder.set("shape", tmpGeometry1);
             } else {
                 continue;
@@ -152,7 +161,7 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 //LOGGER.fine("0 tmpGeometry1:");
                 builder.set("shape", tmpGeometry1);
             } else if (values != null && Geometry.class.isAssignableFrom(descriptor.getType().getBinding())) {
-                /*
+
                 if (values.size() == 1) {
                     LOGGER.fine("values.size() == 1 wkt name:" + name);
                     //tmpGeometry2 = parserUtil.createGeometry(values.get(0));
@@ -161,9 +170,9 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 } else {
                     LOGGER.fine("else wkt name:" + name);
                     builder.set(name, parserUtil.createGeometry(values));
-                }*/
+                }
             } else if (values != null && Date.class.isAssignableFrom(descriptor.getType().getBinding())) {
-                /*
+
                 Object dataVal = values.get(0);
                 if (dataVal instanceof Double) {
                     builder.set(name, new Date(Math.round((Double) dataVal)));
@@ -177,11 +186,11 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
                     Date date = dateFormatter.parseDateTime((String) dataVal).toDate();
                     builder.set(name, date);
-                }*/
+                }
             } else if (values != null && values.size() == 1) {
                 //builder.set(name, values.get(0));
             } else if (values != null && !name.equals("_aggregation")) {
-                /*
+
                 final Object value;
                 if (arrayEncoding == ArrayEncoding.CSV) {
                     // only include first array element when using CSV array encoding
@@ -189,11 +198,11 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 } else {
                     value = values;
                 }
-                builder.set(name, value);*/
+                builder.set(name, value);
             }
         }
 
-        return state.getEntry().getTypeName() + "." + hit.getId();
+        return state.getEntry().getTypeName() + "." + hit.getId();*/
     }
 
     private void nextAggregation() {

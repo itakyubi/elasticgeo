@@ -16,11 +16,15 @@ import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Envelope;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.filter.Filter;
+import org.opengis.filter.FilterVisitor;
 import org.opengis.filter.sort.SortBy;
 import org.opengis.filter.sort.SortOrder;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -114,19 +118,50 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
             final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
-            //searchRequest.addSourceInclude("gid");
-            //searchRequest.addSourceInclude("wkb_shape");
-			LOGGER.fine("call search +++");
+            searchRequest.setSourceShow(false);
+			LOGGER.fine("call 1 search +++");
             final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);	
-			LOGGER.fine("call parseResponse ---");
-			LOGGER.fine("call search ---");
+			LOGGER.fine("call 1 parseResponse ---");
+			LOGGER.fine("call 1 search ---");
             if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.fine("Search response: " + sr);
+                LOGGER.fine("Search response 1: " + sr);
             }
+            //得到id
+            List<ElasticHit> hits = sr.getHits();
+            List<String> Ids = new ArrayList<String>();
+            for (ElasticHit hit:hits) {
+                Ids.add(hit.getId());
+            }
+            //LOGGER.fine("Ids:" + Ids.toString());
+            //请求wkb
+            LOGGER.fine("dataStore.getIndexName():" + dataStore.getIndexName());
+            LOGGER.fine("docType:" + docType);
+            LOGGER.fine("searchRequest.getQuery():" + searchRequest.getQuery().toString());
+            //LOGGER.fine("filter.ClassName:" + searchRequest.getQuery().getClass().getName());
+            Map<String,Object> newQuery = new HashMap<>();
+            Map<String,Object> filter = new HashMap<>();
+            Map<String,Object> terms = new HashMap<>();
+            Map<String,Object> bool = new HashMap<>();
+            terms.put("_id",Ids);
+            filter.put("terms",terms);
+            bool.put("filter",filter);
+            newQuery.put("bool",bool);
+            searchRequest.setQuery(newQuery);
+            searchRequest.setSourceShow(true);
+
+            String indexNameWkb = docType + "_wkb";//dataStore.getIndexName();
+            String docTypeWkb = docType;
+            LOGGER.fine("call 2 search +++");
+            final ElasticResponse srWkb = dataStore.getClient().search(indexNameWkb, docTypeWkb, searchRequest);
+            LOGGER.fine("call 2 parseResponse ---");
+            LOGGER.fine("call 2 search ---");
+            LOGGER.fine("Search response 2 srWkb: " + srWkb);
+            LOGGER.fine("Search response 2 sr: " + sr);
+
             if (!scroll) {
-                reader = new ElasticFeatureReader(getState(), sr);
+                reader = new ElasticFeatureReader(getState(), srWkb);
             } else {
-                reader = new ElasticFeatureReaderScroll(getState(), sr, getSize(query));
+                reader = new ElasticFeatureReaderScroll(getState(), srWkb, getSize(query));
             }
             if (!filterFullySupported) {
                 reader = new FilteringFeatureReader<>(reader, query.getFilter());

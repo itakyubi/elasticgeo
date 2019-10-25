@@ -15,6 +15,8 @@ class ElasticRequest {
 
     private Map<String,Map<String,Map<String,Object>>> aggregations;
 
+    private boolean sourceShow = true;
+
     private Integer size;
 
     private Integer from;
@@ -63,6 +65,14 @@ class ElasticRequest {
 
     public void setFrom(Integer from) {
         this.from = from;
+    }
+
+    public boolean isSourceShow() {
+        return sourceShow;
+    }
+
+    public void setSourceShow(boolean sourceShow) {
+        this.sourceShow = sourceShow;
     }
 
     public Integer getScroll() {

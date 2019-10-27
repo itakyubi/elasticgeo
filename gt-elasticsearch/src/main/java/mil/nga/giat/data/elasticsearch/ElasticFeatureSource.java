@@ -117,7 +117,8 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final ElasticDataStore dataStore = getDataStore();
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
-            final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
+            final boolean firstSearchScroll = false;
+            final ElasticRequest searchRequest = prepareSearchRequest(query, firstSearchScroll);
             searchRequest.setSourceShow(false);
 			LOGGER.fine("call 1 search +++");
             final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);	
@@ -148,6 +149,15 @@ class ElasticFeatureSource extends ContentFeatureSource {
             newQuery.put("bool",bool);
             searchRequest.setQuery(newQuery);
             searchRequest.setSourceShow(true);
+            // set second scroll size
+            if(scroll) {
+                if (dataStore.getScrollSize() != null) {
+                    searchRequest.setSize(dataStore.getScrollSize().intValue());
+                }
+                if (dataStore.getScrollTime() != null) {
+                    searchRequest.setScroll(dataStore.getScrollTime());
+                }
+            }
 
             String indexNameWkb = docType + "_wkb";//dataStore.getIndexName();
             String docTypeWkb = docType;

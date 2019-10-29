@@ -41,7 +41,7 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
     private Boolean filterFullySupported;
 
-    private final static Map<String,SimpleFeature> simpleFeatures = new HashMap<String,SimpleFeature>();
+    private final static Map<String,Object> indexCaches = new HashMap<String,Object>();
 
     public ElasticFeatureSource(ContentEntry entry, Query query) throws IOException {
         super(entry, query);
@@ -111,8 +111,17 @@ class ElasticFeatureSource extends ContentFeatureSource {
         return hits;
     }
 
-    public static void setSimpleFeatures(String key,SimpleFeature simpleFeature) {
-        simpleFeatures.put(key,simpleFeature);
+    public static void setSimpleFeatures(String docType,String id,SimpleFeature simpleFeature) {
+        synchronized (ElasticFeatureSource.class) {
+            // 检查index是否cache
+            if (!indexCaches.containsKey(docType)) {
+                Map<String, SimpleFeature> simpleFeatures = new HashMap<String, SimpleFeature>();
+                indexCaches.put(docType, simpleFeatures);
+            }
+            // 得到当前index的cache
+            Map<String, SimpleFeature> simpleFeatures = (Map<String, SimpleFeature>) indexCaches.get(docType);
+            simpleFeatures.put(id, simpleFeature);
+        }
     }
 
     @Override
@@ -135,13 +144,25 @@ class ElasticFeatureSource extends ContentFeatureSource {
             }
             //得到id
             List<ElasticHit> hits = sr.getHits();
+            // 未找到cache的id
             List<String> Ids = new ArrayList<String>();
+            // 根据id找到的cache
             List<SimpleFeature> cachedSimpleFeatures = new ArrayList<SimpleFeature>();
+            // 当前index的cache
+            Map<String, SimpleFeature> simpleFeatures;
+            synchronized (ElasticFeatureSource.class) {
+                // 检查index是否cache
+                if (!indexCaches.containsKey(docType)) {
+                    Map<String, SimpleFeature> newSimpleFeatures = new HashMap<String, SimpleFeature>();
+                    indexCaches.put(docType, newSimpleFeatures);
+                }
+                // 得到当前index的cache
+                simpleFeatures = (Map<String, SimpleFeature>) indexCaches.get(docType);
+            }
             for (ElasticHit hit:hits) {
-                // 检测cache里面是否包含
-                String id = docType + "/" + hit.getId();
+                // 检测cache里面是否包含id对应的simpleFeature
+                String id = hit.getId();
                 if(simpleFeatures.containsKey(id)) {
-                    //LOGGER.fine("cached:" + id);
                     cachedSimpleFeatures.add(simpleFeatures.get(id));
                 } else {
                     Ids.add(hit.getId());

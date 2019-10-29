@@ -124,7 +124,7 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
         String buildId = state.getEntry().getTypeName() + "." + id;
         SimpleFeature sf = builder.buildFeature(buildId);
         // cache simplefeatures
-        ElasticFeatureSource.setSimpleFeatures((this.docType + "/" + id),sf);
+        ElasticFeatureSource.setSimpleFeatures(this.docType,id,sf);
         return sf;
     }
 

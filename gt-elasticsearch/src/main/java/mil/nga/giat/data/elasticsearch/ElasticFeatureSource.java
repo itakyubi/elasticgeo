@@ -41,6 +41,8 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
     private Boolean filterFullySupported;
 
+    private final static Map<String,SimpleFeature> simpleFeatures = new HashMap<String,SimpleFeature>();
+
     public ElasticFeatureSource(ContentEntry entry, Query query) throws IOException {
         super(entry, query);
 
@@ -109,6 +111,10 @@ class ElasticFeatureSource extends ContentFeatureSource {
         return hits;
     }
 
+    public static void setSimpleFeatures(String key,SimpleFeature simpleFeature) {
+        simpleFeatures.put(key,simpleFeature);
+    }
+
     @Override
     protected FeatureReader<SimpleFeatureType, SimpleFeature> getReaderInternal(Query query) throws IOException {
         LOGGER.fine("getReaderInternal");
@@ -120,24 +126,32 @@ class ElasticFeatureSource extends ContentFeatureSource {
             final boolean firstSearchScroll = false;
             final ElasticRequest searchRequest = prepareSearchRequest(query, firstSearchScroll);
             searchRequest.setSourceShow(false);
-			LOGGER.fine("call 1 search +++");
+			LOGGER.fine("call 1 search +++" + Thread.currentThread().getName());
             final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);	
-			LOGGER.fine("call 1 parseResponse ---");
-			LOGGER.fine("call 1 search ---");
+			LOGGER.fine("call 1 search ---" + Thread.currentThread().getName());
+			//LOGGER.fine("call 1 search ---");
             if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.fine("Search response 1: " + sr);
+                //LOGGER.fine("Search response 1: " + sr);
             }
             //得到id
             List<ElasticHit> hits = sr.getHits();
             List<String> Ids = new ArrayList<String>();
+            List<SimpleFeature> cachedSimpleFeatures = new ArrayList<SimpleFeature>();
             for (ElasticHit hit:hits) {
-                Ids.add(hit.getId());
+                // 检测cache里面是否包含
+                String id = docType + "/" + hit.getId();
+                if(simpleFeatures.containsKey(id)) {
+                    //LOGGER.fine("cached:" + id);
+                    cachedSimpleFeatures.add(simpleFeatures.get(id));
+                } else {
+                    Ids.add(hit.getId());
+                }
             }
             //LOGGER.fine("Ids:" + Ids.toString());
             //请求wkb
-            LOGGER.fine("dataStore.getIndexName():" + dataStore.getIndexName());
-            LOGGER.fine("docType:" + docType);
-            LOGGER.fine("searchRequest.getQuery():" + searchRequest.getQuery().toString());
+            //LOGGER.fine("dataStore.getIndexName():" + dataStore.getIndexName());
+            //LOGGER.fine("docType:" + docType);
+            //LOGGER.fine("searchRequest.getQuery():" + searchRequest.getQuery().toString());
             //LOGGER.fine("filter.ClassName:" + searchRequest.getQuery().getClass().getName());
             Map<String,Object> newQuery = new HashMap<>();
             Map<String,Object> filter = new HashMap<>();
@@ -161,21 +175,24 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
             String indexNameWkb = docType + "_wkb";//dataStore.getIndexName();
             String docTypeWkb = docType;
-            LOGGER.fine("call 2 search +++");
+            LOGGER.fine("call 2 search +++" + Thread.currentThread().getName());
             final ElasticResponse srWkb = dataStore.getClient().search(indexNameWkb, docTypeWkb, searchRequest);
-            LOGGER.fine("call 2 parseResponse ---");
-            LOGGER.fine("call 2 search ---");
-            LOGGER.fine("Search response 2 srWkb: " + srWkb);
-            LOGGER.fine("Search response 2 sr: " + sr);
+            LOGGER.fine("call 2 search ---" + Thread.currentThread().getName());
+            //LOGGER.fine("call 2 search ---");
+            //LOGGER.fine("Search response 2 srWkb: " + srWkb);
+            //LOGGER.fine("Search response 2 sr: " + sr);
 
             if (!scroll) {
-                reader = new ElasticFeatureReader(getState(), srWkb);
+                reader = new ElasticFeatureReader(getState(), srWkb,cachedSimpleFeatures,docType);
             } else {
-                reader = new ElasticFeatureReaderScroll(getState(), srWkb, getSize(query));
+                reader = new ElasticFeatureReaderScroll(getState(), srWkb, getSize(query),cachedSimpleFeatures,docType);
             }
+            // update cache
+
             if (!filterFullySupported) {
                 reader = new FilteringFeatureReader<>(reader, query.getFilter());
             }
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, e.getMessage(), e);
             throw new IOException("Error executing query search", e);

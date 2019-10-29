@@ -5,10 +5,7 @@
 package mil.nga.giat.data.elasticsearch;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Logger;
 
 import org.geotools.data.FeatureReader;
@@ -35,12 +32,26 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
 
     private final Set<String> scrollIds;
 
-    public ElasticFeatureReaderScroll(ContentState contentState, ElasticResponse searchResponse, int maxFeatures) {
+    private final List<SimpleFeature> simpleFeatures;
+
+    private String docType;
+
+    public ElasticFeatureReaderScroll(ContentState contentState, ElasticResponse searchResponse, int maxFeatures,List<SimpleFeature> cachedSimpleFeatures,String docType) throws IOException {
         this.contentState = contentState;
         this.maxFeatures = maxFeatures;
         this.numFeatures = 0;
         this.scrollIds = new HashSet<>();
+        this.docType = docType;
         processResponse(searchResponse);
+
+        // fill simpleFeatures
+        this.simpleFeatures = new ArrayList<SimpleFeature>();
+        if((cachedSimpleFeatures != null) && (!cachedSimpleFeatures.isEmpty())) {
+            simpleFeatures.addAll(cachedSimpleFeatures);
+        }
+        while(hasNextInternal()) {
+            simpleFeatures.add(nextInternal());
+        }
     }
 
     private void advanceScroll() throws IOException {
@@ -58,7 +69,7 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
             final int n = maxFeatures-numFeatures;
             hits = searchResponse.getResults().getHits().subList(0,n);
         }
-        delegate = new ElasticFeatureReader(contentState, hits, searchResponse.getAggregations(), 0);
+        delegate = new ElasticFeatureReader(contentState, hits, searchResponse.getAggregations(), 0,null,docType);
         nextScrollId = searchResponse.getScrollId();
         lastScroll = numHits == 0 || numFeatures+hits.size()>=maxFeatures;
         LOGGER.fine("Scoll numHits=" + hits.size() + " (total=" + numFeatures+hits.size());
@@ -71,9 +82,15 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
     }
 
     @Override
-    public SimpleFeature next() throws IOException {
+    public SimpleFeature next() {
+        SimpleFeature simpleFeature = simpleFeatures.get(0);
+        simpleFeatures.remove(0);
+        return simpleFeature;
+    }
+
+    private SimpleFeature nextInternal() throws IOException {
         final SimpleFeature feature;
-        if (hasNext()) {
+        if (hasNextInternal()) {
             numFeatures++;
             feature = delegate.next();
         } else {
@@ -83,7 +100,11 @@ class ElasticFeatureReaderScroll implements FeatureReader<SimpleFeatureType, Sim
     }
 
     @Override
-    public boolean hasNext() throws IOException {
+    public boolean hasNext() {
+        return !simpleFeatures.isEmpty();
+    }
+
+    private boolean hasNextInternal() throws IOException {
         if (!delegate.hasNext() && !lastScroll) {
             advanceScroll();
         }

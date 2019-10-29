@@ -227,7 +227,7 @@ public class RestElasticClient implements ElasticClient {
             LOGGER.fine("Method: " + method);
             LOGGER.fine("Path: " + path);
             final String requestString = this.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(requestBody);
-            LOGGER.fine("RequestBody: " + requestString);
+            //LOGGER.fine("RequestBody: " + requestString);
         }
 
         final RestClient client = isAdmin || this.proxyClient == null ? this.client : this.proxyClient;
@@ -251,10 +251,17 @@ public class RestElasticClient implements ElasticClient {
         } else {
             LOGGER.fine(String.format("Performing request with %s credentials", isAdmin ? "user" : "proxy"));
         }
-		
-		LOGGER.fine("call client.performRequest +++");
+
+        long t1 = System.currentTimeMillis();
+		//LOGGER.fine("call client.performRequest +++");
         final Response response = client.performRequest(request);
-		LOGGER.fine("call client.performRequest ---");
+        long t2 = System.currentTimeMillis();
+		//LOGGER.fine("call client.performRequest ---");
+        long contentLength = response.getEntity().getContentLength();
+        //LOGGER.fine("call client.performRequest:" + (t2 - t1) + "ms");
+        //LOGGER.fine("contentLength:" + (1.0 * contentLength / 1000000) + " M");
+        LOGGER.fine("speed:" + (1.0 * contentLength / 1000 / (t2-t1)) + " M/s " + Thread.currentThread().getName());
+
         if (response.getStatusLine().getStatusCode() >= 400) {
             throw new IOException("Error executing request: " + response.getStatusLine().getReasonPhrase());
         }
@@ -265,26 +272,8 @@ public class RestElasticClient implements ElasticClient {
         return performRequest(method, path, requestBody, false);
     }
 
-    private String InputStreamToString(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream result = new ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
-        int length;
-        while ((length = inputStream.read(buffer)) != -1) {
-            result.write(buffer, 0, length);
-        }
-        return result.toString("UTF-8");
-    }
-
-    private String deleteShape(String s){
-        String regex = ",\"shape\":.*?}";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(s);
-        s = matcher.replaceAll("");
-        return s;
-    }
-
     private ElasticResponse parseResponse(final Response response) throws IOException {
-    	LOGGER.fine("call parseResponse +++");
+    	//LOGGER.fine("call parseResponse +++");
         try (final InputStream inputStream = response.getEntity().getContent()) {
             return this.mapper.readValue(inputStream, ElasticResponse.class);
         }

@@ -48,7 +48,7 @@ public class ElasticAggregationReaderTest {
 
     @Test
     public void testNoAggregations() {
-        assertFalse((new ElasticFeatureReader(state, hits, aggregations, 0)).hasNext());
+        assertFalse((new ElasticFeatureReader(state, hits, aggregations, 0,null,"")).hasNext());
     }
 
     @Test
@@ -56,10 +56,10 @@ public class ElasticAggregationReaderTest {
         ElasticAggregation aggregation = new ElasticAggregation();
         aggregation.setBuckets(new ArrayList<>());
         aggregations.put("test", aggregation);
-        assertFalse((new ElasticFeatureReader(state, hits, aggregations, 0)).hasNext());
+        assertFalse((new ElasticFeatureReader(state, hits, aggregations, 0,null,"")).hasNext());
 
         aggregation.setBuckets(ImmutableList.of(ImmutableMap.of("key1","value1"), ImmutableMap.of("key2","value2")));
-        reader = new ElasticFeatureReader(state, hits, aggregations, 0);
+        reader = new ElasticFeatureReader(state, hits, aggregations, 0,null,"");
         assertTrue(reader.hasNext());
         feature = reader.next();
         assertNotNull(feature.getAttribute("_aggregation"));
@@ -80,7 +80,7 @@ public class ElasticAggregationReaderTest {
         aggregation.setBuckets(ImmutableList.of(ImmutableMap.of("key2","value2")));
         aggregations.put("test2", aggregation);
 
-        reader = new ElasticFeatureReader(state, hits, aggregations, 0);
+        reader = new ElasticFeatureReader(state, hits, aggregations, 0,null,"");
         assertTrue(reader.hasNext());
         feature = reader.next();
         assertNotNull(feature.getAttribute("_aggregation"));

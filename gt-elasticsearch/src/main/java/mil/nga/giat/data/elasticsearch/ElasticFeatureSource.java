@@ -6,23 +6,13 @@ package mil.nga.giat.data.elasticsearch;
 
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.FilteringFeatureReader;
 import org.geotools.data.Query;
@@ -41,12 +31,15 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 /**
  * Provides access to a specific type within the Elasticsearch index described
  * by the associated data store.
+ *
  */
 class ElasticFeatureSource extends ContentFeatureSource {
 
     private final static Logger LOGGER = Logging.getLogger(ElasticFeatureSource.class);
 
     private Boolean filterFullySupported;
+
+    private final static Map<String,Object> indexCaches = new HashMap<String,Object>();
 
     public ElasticFeatureSource(ContentEntry entry, Query query) throws IOException {
         super(entry, query);
@@ -116,26 +109,120 @@ class ElasticFeatureSource extends ContentFeatureSource {
         return hits;
     }
 
+    public static void setSimpleFeatures(String docType,Integer id,SimpleFeature simpleFeature) {
+        synchronized (ElasticFeatureSource.class) {
+            // 检查index是否cache
+            if (!indexCaches.containsKey(docType)) {
+                SimpleFeatureCache newSimpleFeatureCache = new SimpleFeatureCache();
+                indexCaches.put(docType, newSimpleFeatureCache);
+                //Map<Integer, SimpleFeature> simpleFeatures = new HashMap<Integer, SimpleFeature>();
+                //indexCaches.put(docType, simpleFeatures);
+            }
+            // 得到当前index的cache
+            SimpleFeatureCache simpleFeatureCache = (SimpleFeatureCache)indexCaches.get(docType);
+            simpleFeatureCache.put(id, simpleFeature);
+            //Map<Integer, SimpleFeature> simpleFeatures = (Map<Integer, SimpleFeature>) indexCaches.get(docType);
+            //simpleFeatures.put(id, simpleFeature);
+        }
+    }
+
     @Override
     protected FeatureReader<SimpleFeatureType, SimpleFeature> getReaderInternal(Query query) throws IOException {
         LOGGER.fine("getReaderInternal");
         FeatureReader<SimpleFeatureType, SimpleFeature> reader;
+
         try {
+            long t = System.nanoTime();
             final ElasticDataStore dataStore = getDataStore();
             final String docType = dataStore.getDocType(entry.getName());
             final boolean scroll = !useSortOrPagination(query) && dataStore.getScrollEnabled();
-            final ElasticRequest searchRequest = prepareSearchRequest(query, scroll);
+            final boolean firstSearchScroll = false;
+            final ElasticRequest searchRequest = prepareSearchRequest(query, firstSearchScroll);
+            searchRequest.setSourceShow(false);
+			//LOGGER.fine("call 1 search +++" + Thread.currentThread().getName());
             final ElasticResponse sr = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
+			//LOGGER.fine("call 1 search ---" + Thread.currentThread().getName());
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("Search response: " + sr);
             }
-            if (!scroll) {
-                reader = new ElasticFeatureReader(getState(), sr);
-            } else {
-                reader = new ElasticFeatureReaderScroll(getState(), sr, getSize(query));
+            LOGGER.fine("timeDebug: 1 search: " + (System.nanoTime() - t)+ " ns");
+            t = System.nanoTime();
+            // 得到 es 的 filter 的结果，里面包含了id
+            List<ElasticHit> hits = sr.getHits();
+            // 未找到cache的id
+            List<Integer> Ids = new ArrayList<Integer>();
+            // 根据id找到的cache
+            List<SimpleFeature> cachedSimpleFeatures = new ArrayList<SimpleFeature>();
+            // 当前index的cache
+            SimpleFeatureCache simpleFeatureCache;
+            //Map<Integer, SimpleFeature> simpleFeatures;
+            synchronized (ElasticFeatureSource.class) {
+                // 检查index是否cache
+                if (!indexCaches.containsKey(docType)) {
+                    SimpleFeatureCache newSimpleFeatureCache = new SimpleFeatureCache();
+                    indexCaches.put(docType, newSimpleFeatureCache);
+                    //Map<Integer, SimpleFeature> newSimpleFeatures = new HashMap<Integer, SimpleFeature>();
+                    //indexCaches.put(docType, newSimpleFeatures);
+                }
+                // 得到当前index的cache
+                simpleFeatureCache = (SimpleFeatureCache)indexCaches.get(docType);
+                //simpleFeatures = (Map<Integer, SimpleFeature>) indexCaches.get(docType);
+                LOGGER.fine("get simpleFeatures:" + simpleFeatureCache.hashCode() +"," + Thread.currentThread().getName());
             }
-            if (!filterFullySupported) {
-                reader = new FilteringFeatureReader<>(reader, query.getFilter());
+            LOGGER.fine("timeDebug: 2 get cache: " + (System.nanoTime() - t)+ " ns");
+            t = System.nanoTime();
+
+            for (ElasticHit hit:hits) {
+                // 检测cache里面是否包含id对应的simpleFeature
+                Integer id = Integer.valueOf(hit.getId());
+                if(simpleFeatureCache.containsKey(id)) {
+					//LOGGER.fine("cached:" + id);
+                    cachedSimpleFeatures.add(simpleFeatureCache.get(id));
+                } else {
+                    Ids.add(id);
+                }
+            }
+            LOGGER.fine("timeDebug: 3 check cache: " + (System.nanoTime() - t) + " ns");
+
+            //LOGGER.fine("Ids:" + Ids.toString());
+            if(Ids.isEmpty()) {
+                LOGGER.fine("use cache:" + Thread.currentThread().getName());
+                // 使用所有的cache的构成reader
+                reader = new ElasticFeatureReader(getState(),cachedSimpleFeatures);
+            } else {
+                LOGGER.fine("update cache:" + Thread.currentThread().getName());
+                //请求未cache的shape
+                Map<String, Object> newQuery = new HashMap<>();
+                Map<String, Object> filter = new HashMap<>();
+                Map<String, Object> terms = new HashMap<>();
+                Map<String, Object> bool = new HashMap<>();
+                terms.put("_id", Ids);
+                filter.put("terms", terms);
+                bool.put("filter", filter);
+                newQuery.put("bool", bool);
+                searchRequest.setQuery(newQuery);
+                searchRequest.setSourceShow(true);
+                // set second scroll size
+                if (scroll) {
+                    if (dataStore.getScrollSize() != null) {
+                        searchRequest.setSize(dataStore.getScrollSize().intValue());
+                    }
+                    if (dataStore.getScrollTime() != null) {
+                        searchRequest.setScroll(dataStore.getScrollTime());
+                    }
+                }
+
+                LOGGER.fine("call 2 search +++" + Thread.currentThread().getName());
+                final ElasticResponse sr2 = dataStore.getClient().search(dataStore.getIndexName(), docType, searchRequest);
+                LOGGER.fine("call 2 search ---" + Thread.currentThread().getName());
+                if (!scroll) {
+                    reader = new ElasticFeatureReader(getState(), sr2, cachedSimpleFeatures, docType);
+                } else {
+                    reader = new ElasticFeatureReaderScroll(getState(), sr2, getSize(query), cachedSimpleFeatures, docType);
+                }
+	            if (!filterFullySupported) {
+	                reader = new FilteringFeatureReader<>(reader, query.getFilter());
+	            }
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, e.getMessage(), e);
@@ -152,7 +239,7 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
         LOGGER.fine("Preparing " + docType + " (" + entry.getName() + ") query");
         if (!scroll) {
-            if (query.getSortBy() != null) {
+            if (query.getSortBy()!=null){
                 for (final SortBy sort : query.getSortBy()) {
                     final String sortOrder = sort.getSortOrder().toSQL().toLowerCase();
                     if (sort.getPropertyName() != null) {
@@ -196,9 +283,9 @@ class ElasticFeatureSource extends ContentFeatureSource {
             LOGGER.fine("Filter is not fully supported by native Elasticsearch."
                     + " Additional post-query filtering will be performed.");
         }
-        final Map<String, Object> queryBuilder = filterToElastic.getQueryBuilder();
+        final Map<String,Object> queryBuilder = filterToElastic.getQueryBuilder();
 
-        final Map<String, Object> nativeQueryBuilder = filterToElastic.getNativeQueryBuilder();
+        final Map<String,Object> nativeQueryBuilder = filterToElastic.getNativeQueryBuilder();
 
         searchRequest.setQuery(queryBuilder);
 
@@ -250,7 +337,7 @@ class ElasticFeatureSource extends ContentFeatureSource {
 
     private boolean useSortOrPagination(Query query) {
         return (query.getSortBy() != null && query.getSortBy().length > 0) ||
-                query.getStartIndex() != null;
+                query.getStartIndex()!=null;
     }
 
     private int getSize(Query query) {

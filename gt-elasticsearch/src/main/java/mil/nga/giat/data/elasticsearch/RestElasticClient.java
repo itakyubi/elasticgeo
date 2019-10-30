@@ -197,16 +197,20 @@ public class RestElasticClient implements ElasticClient {
             pathBuilder.append("?scroll=").append(request.getScroll()).append("s");
         }
 
-        final List<String> sourceIncludes = request.getSourceIncludes();
-        if (sourceIncludes.size() == 1) {
-            requestBody.put("_source", sourceIncludes.get(0));
-        } else if (!sourceIncludes.isEmpty()) {
-            requestBody.put("_source", sourceIncludes);
-        }
+        if(request.isSourceShow())  {
+            final List<String> sourceIncludes = request.getSourceIncludes();
+            if (sourceIncludes.size() == 1) {
+                requestBody.put("_source", sourceIncludes.get(0));
+            } else if (!sourceIncludes.isEmpty()) {
+                requestBody.put("_source", sourceIncludes);
+            }
 
-        if (!request.getFields().isEmpty()) {
-            final String key = getVersion() >= 5 ? "stored_fields" : "fields";
-            requestBody.put(key, request.getFields());
+            if (!request.getFields().isEmpty()) {
+                final String key = getVersion() >= 5 ? "stored_fields" : "fields";
+                requestBody.put(key, request.getFields());
+            }
+        } else {
+            requestBody.put("_source", false);
         }
 
         if (!request.getSorts().isEmpty()) {
@@ -261,7 +265,6 @@ public class RestElasticClient implements ElasticClient {
             LOGGER.fine(String.format("Performing request with %s credentials", isAdmin ? "user" : "proxy"));
         }
         final Response response = client.performRequest(request);
-        LOGGER.fine("performRequest done");
         if (response.getStatusLine().getStatusCode() >= 400) {
             throw new IOException("Error executing request: " + response.getStatusLine().getReasonPhrase());
         }
@@ -273,26 +276,18 @@ public class RestElasticClient implements ElasticClient {
     }
 
     private ElasticResponse parseResponse(final Response response) throws IOException {
-        LOGGER.fine("parseResponse start");
-        final InputStream inputStream = response.getEntity().getContent();
-        LOGGER.fine("inputStream done");
-        ElasticResponse elasticResponse = this.mapper.readValue(inputStream, ElasticResponse.class);
-        LOGGER.fine("readValue done");
-        return elasticResponse;
-        /*try (final InputStream inputStream = response.getEntity().getContent()) {
+        try (final InputStream inputStream = response.getEntity().getContent()) {
             return this.mapper.readValue(inputStream, ElasticResponse.class);
-        }*/
+        }
     }
 
     @Override
     public ElasticResponse scroll(String scrollId, Integer scrollTime) throws IOException {
-        LOGGER.fine("scroll start");
         final String path = "/_search/scroll";
 
         final Map<String,Object> requestBody = new HashMap<>();
         requestBody.put("scroll_id", scrollId);
         requestBody.put("scroll", scrollTime + "s");
-        LOGGER.fine("scroll parseResponse start");
         return parseResponse(performRequest("POST", path, requestBody));
     }
 

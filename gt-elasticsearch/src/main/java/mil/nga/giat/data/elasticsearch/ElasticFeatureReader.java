@@ -23,11 +23,7 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 /**
@@ -41,11 +37,11 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
     private final SimpleFeatureType featureType;
 
-    private final float maxScore;
+    private float maxScore;
 
-    private final ObjectMapper mapper;
+    private ObjectMapper mapper;
 
-    private final ArrayEncoding arrayEncoding;
+    private ArrayEncoding arrayEncoding;
 
     private SimpleFeatureBuilder builder;
 
@@ -53,19 +49,34 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
     private Iterator<Map<String,Object>> aggregationIterator;
 
-    private final ElasticParserUtil parserUtil;
+    private ElasticParserUtil parserUtil;
 
-    public ElasticFeatureReader(ContentState contentState, ElasticResponse response) {
-        this(contentState, response.getHits(), response.getAggregations(), response.getMaxScore());
+    private final List<SimpleFeature> simpleFeatures;
+
+    private String docType;
+
+    public ElasticFeatureReader(ContentState contentState,List<SimpleFeature> cachedSimpleFeatures) {
+        this.state = contentState;
+        this.featureType = state.getFeatureType();
+        // fill simpleFeatures
+        this.simpleFeatures = new ArrayList<SimpleFeature>();
+        if((cachedSimpleFeatures != null) && (!cachedSimpleFeatures.isEmpty())) {
+            simpleFeatures.addAll(cachedSimpleFeatures);
+        }
     }
 
-    public ElasticFeatureReader(ContentState contentState, List<ElasticHit> hits, Map<String,ElasticAggregation> aggregations, float maxScore) {
+    public ElasticFeatureReader(ContentState contentState, ElasticResponse response, List<SimpleFeature> cachedSimpleFeatures, String docType) {
+        this(contentState, response.getHits(), response.getAggregations(), response.getMaxScore(),cachedSimpleFeatures,docType);
+    }
+
+    public ElasticFeatureReader(ContentState contentState, List<ElasticHit> hits, Map<String,ElasticAggregation> aggregations, float maxScore,List<SimpleFeature> cachedSimpleFeatures,String docType) {
         this.state = contentState;
         this.featureType = state.getFeatureType();
         this.searchHitIterator = hits.iterator();
         this.builder = new SimpleFeatureBuilder(featureType);
         this.parserUtil = new ElasticParserUtil();
         this.maxScore = maxScore;
+        this.docType = docType;
 
         this.aggregationIterator = Collections.emptyIterator();
         if (aggregations != null && !aggregations.isEmpty()) {
@@ -87,7 +98,17 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
         }
 
         this.mapper = new ObjectMapper();
+
+        // fill simpleFeatures
+        this.simpleFeatures = new ArrayList<SimpleFeature>();
+        if((cachedSimpleFeatures != null) && (!cachedSimpleFeatures.isEmpty())) {
+            simpleFeatures.addAll(cachedSimpleFeatures);
+        }
+        while(hasNextInternal()) {
+            simpleFeatures.add(nextInternal());
+        }
     }
+
 
     @Override
     public SimpleFeatureType getFeatureType() {
@@ -96,21 +117,36 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
     @Override
     public SimpleFeature next() {
+        SimpleFeature simpleFeature = simpleFeatures.get(0);
+        simpleFeatures.remove(0);
+        return simpleFeature;
+    }
+
+    private SimpleFeature nextInternal() {
         final String id;
         if (searchHitIterator.hasNext()) {
-            id = nextHit();
+            id = nextHitInternal();
         } else {
             nextAggregation();
             id = null;
         }
-        return builder.buildFeature(id);
+
+        String buildId = state.getEntry().getTypeName() + "." + id;
+        SimpleFeature sf = builder.buildFeature(buildId);
+        // cache simplefeatures
+        ElasticFeatureSource.setSimpleFeatures(this.docType,Integer.valueOf(id),sf);
+        return sf;
     }
 
-    private String nextHit() {
+    private String nextHitInternal() {
         final ElasticHit hit = searchHitIterator.next();
-        final SimpleFeatureType type = getFeatureType();
+        //final SimpleFeatureType type = getFeatureType();
         final Map<String, Object> source = hit.getSource();
 
+		builder.set("shape", parserUtil.createGeometry(source.get("shape")));
+		
+		return hit.getId();
+		/*
         final Float score;
         final Float relativeScore;
         if (hit.getScore() != null && !Float.isNaN(hit.getScore()) && maxScore>0) {
@@ -175,8 +211,9 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
                 builder.set(name, value);
             }
         }
-
-        return state.getEntry().getTypeName() + "." + hit.getId();
+        return hit.getId();
+        //return state.getEntry().getTypeName() + "." + hit.getId();
+		*/
     }
 
     private void nextAggregation() {
@@ -191,6 +228,10 @@ class ElasticFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFea
 
     @Override
     public boolean hasNext() {
+        return !simpleFeatures.isEmpty();
+    }
+
+    private boolean hasNextInternal() {
         return searchHitIterator.hasNext() || aggregationIterator.hasNext();
     }
 
